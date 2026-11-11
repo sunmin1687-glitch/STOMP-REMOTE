@@ -1,0 +1,607 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Stomp Remote</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@300;400;500;600&display=swap">
+<style>
+/* 레이아웃: 위 바(프리셋·스냅샷·탭·튜너) → 가운데 페이더 보드 + 오른쪽 연결/로그 → 아래 풋스위치. 아이패드 가로 기준, 좁으면 세로로 쌓임 */
+:root{
+  --bg:#0c0d0f; --panel:#121417; --raise:#15171a; --line:#23262b; --line2:#1f2226;
+  --fg:#e8eaed; --mute:#aab1b9; --dim:#7b838c; --faint:#5f666e;
+  --accent:#5ec8ff; --ok:#4ade80; --warn:#e9c45a; --bad:#ef6a6a;
+  --sans:'IBM Plex Sans KR',system-ui,-apple-system,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:14px;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+button{font-family:inherit;color:inherit;cursor:pointer}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.app{min-height:100%;display:flex;flex-direction:column;gap:12px;padding-block:max(14px,env(safe-area-inset-top,0px)) max(14px,env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.card{background:var(--panel);border:1px solid var(--line2);border-radius:16px}
+.btn{height:52px;padding:0 16px;border-radius:12px;border:1px solid var(--line);background:var(--raise);font-size:14px}
+.btn:active{transform:translateY(1px)}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+/* 위 바 */
+.top{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.preset{display:flex;align-items:stretch;height:76px;background:var(--raise);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.plist{display:flex;flex-direction:column;justify-content:center;width:230px;padding:4px 0}
+.prow{display:flex;align-items:center;gap:10px;padding:0 16px;border:0;background:transparent;text-align:left;height:20px;font-size:12px;color:var(--dim)}
+.prow.cur{height:30px;font-size:16px;font-weight:600;color:#fff}
+.prow .mono{width:30px;font-size:10px}
+.prow.cur .mono{font-size:11px;color:var(--accent)}
+.parrows{display:flex;flex-direction:column;width:48px;border-left:1px solid var(--line)}
+.parrows button{flex:1;border:0;background:transparent;color:var(--mute);display:flex;align-items:center;justify-content:center}
+.parrows button+button{border-top:1px solid var(--line)}
+.conn{display:flex;align-items:center;gap:8px;height:36px;padding:0 14px;border-radius:999px;background:var(--raise);border:1px solid var(--line);font-size:12px;color:var(--mute)}
+.led{width:7px;height:7px;border-radius:50%;background:var(--faint)}
+.led.on{background:var(--ok);box-shadow:0 0 0 3px rgba(74,222,128,.15)}
+.spacer{flex:1}
+.snaps{display:flex;gap:4px;padding:4px;height:52px;background:var(--raise);border:1px solid var(--line);border-radius:12px}
+.snaps button{min-width:78px;height:42px;border-radius:9px;border:0;background:transparent;color:var(--mute);font-size:13px}
+.snaps button.on{background:var(--fg);color:var(--bg);font-weight:600}
+.tap{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;min-width:64px}
+.tap small{font-size:10px;color:var(--dim);letter-spacing:.08em}
+.tap span{font-family:var(--mono);font-size:15px}
+
+/* 가운데 */
+.main{flex:1;display:flex;gap:12px;min-height:0;flex-wrap:wrap}
+.board{flex:999 1 560px;min-width:0;display:flex;flex-direction:column}
+.bhead{display:flex;align-items:center;gap:12px;height:56px;padding:0 20px;border-bottom:1px solid var(--line2)}
+.bhead h2{margin:0;font-size:17px;font-weight:600}
+.bhead p{margin:0;font-size:12px;color:var(--dim)}
+.faders{flex:1;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px;padding:18px 16px}
+.fader{display:flex;flex-direction:column;align-items:center;gap:10px;min-width:0}
+.fval{font-family:var(--mono);font-size:13px}
+.track{position:relative;width:44px;flex:1;min-height:220px;touch-action:none;cursor:ns-resize}
+.track .ticks{position:absolute;left:4px;top:0;bottom:0;width:6px;background:repeating-linear-gradient(to bottom,#2c3036 0,#2c3036 1px,transparent 1px,transparent 10%)}
+.track .groove{position:absolute;left:20px;top:0;bottom:0;width:4px;border-radius:2px;background:#1d2024}
+.track .fill{position:absolute;left:20px;bottom:0;width:4px;border-radius:2px;background:var(--accent)}
+.track .thumb{position:absolute;left:6px;width:32px;height:14px;margin-top:-7px;border-radius:3px;background:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.5)}
+.track .thumb::after{content:"";position:absolute;left:4px;right:4px;top:6px;height:2px;border-radius:1px;background:var(--bg)}
+.flabel{font-size:12px;color:#c9ced4;border:0;background:transparent;padding:2px 4px;border-radius:6px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fcc{font-family:var(--mono);font-size:10px;color:var(--faint)}
+
+.side{flex:1 1 300px;min-width:0;display:flex;flex-direction:column;gap:12px}
+.sec{padding:16px 18px;display:flex;flex-direction:column;gap:10px}
+.sec h3{margin:0;font-size:13px;font-weight:600}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+label{font-size:12px;color:var(--dim)}
+select,input[type=text],input[type=number]{height:40px;border-radius:10px;border:1px solid var(--line);background:var(--raise);color:var(--fg);font-family:inherit;font-size:13px;padding:0 10px;min-width:0}
+.log{flex:1;min-height:120px;max-height:260px;overflow:auto;font-family:var(--mono);font-size:11px;line-height:1.6;color:var(--mute);background:#0a0b0d;border-radius:10px;padding:10px 12px;-webkit-user-select:text;user-select:text}
+.log .in{color:var(--ok)}
+.log .out{color:var(--accent)}
+.log .err{color:var(--bad)}
+.note{font-size:12px;color:var(--dim);line-height:1.6;margin:0}
+
+/* 풋스위치 */
+.fs{display:flex;gap:10px;height:60px}
+.fs button{flex:1;display:flex;align-items:center;gap:12px;padding:0 18px;border-radius:14px;border:1px solid var(--line);background:var(--raise);text-align:left}
+.fs .ring{width:12px;height:12px;border-radius:50%;border:2px solid #3a3f46;flex:none}
+.fs .ring.lit{border-color:var(--accent);background:var(--accent);box-shadow:0 0 8px var(--accent)}
+.fs small{font-family:var(--mono);font-size:11px;color:var(--dim)}
+
+/* 튜너 */
+.tuner{position:fixed;inset:0;z-index:20;background:var(--bg);display:flex;flex-direction:column;gap:12px;padding-block:max(14px,env(safe-area-inset-top,0px)) max(14px,env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.thead{display:flex;align-items:center;gap:14px}
+.round{width:52px;height:52px;border-radius:50%;border:1px solid var(--line);background:var(--raise);display:flex;align-items:center;justify-content:center}
+.tcard{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+.ttop{display:flex;align-items:flex-end;gap:32px;padding:24px 32px 20px;flex-wrap:wrap}
+.tnote{display:flex;align-items:flex-start;gap:4px;width:170px}
+.tnote b{font-size:140px;font-weight:300;line-height:.85;letter-spacing:-.05em;transition:color .3s ease}
+.tnote span{font-family:var(--mono);font-size:22px;font-weight:300;color:var(--dim);margin-top:16px}
+.badge{display:inline-flex;align-items:center;gap:8px;padding:6px 14px 6px 10px;border-radius:999px;font-size:14px;font-weight:600;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);transition:color .3s ease}
+.badge i{width:8px;height:8px;border-radius:50%;background:currentColor}
+.stat{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.stat small{font-size:11px;letter-spacing:.08em;color:var(--dim)}
+.stat b{font-family:var(--mono);font-size:34px;font-weight:300;font-variant-numeric:tabular-nums}
+.graph{flex:1;min-height:240px;border-top:1px solid var(--line2);transition:background-color .3s ease;position:relative}
+.graph canvas{position:absolute;inset:0;width:100%;height:100%}
+.tmsg{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;color:var(--mute);font-size:14px;line-height:1.7;max-width:420px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+@media (max-width:700px){.plist{width:170px}.faders{grid-template-columns:repeat(3,minmax(0,1fr))}.tnote b{font-size:96px}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="preset" aria-label="프리셋">
+      <div class="plist">
+        <button class="prow" id="pPrev" type="button"><span class="mono" id="pPrevId">—</span><span id="pPrevName"></span></button>
+        <button class="prow cur" id="pCur" type="button" aria-label="프리셋 이름 바꾸기"><span class="mono" id="pCurId">01A</span><span id="pCurName"></span></button>
+        <button class="prow" id="pNext" type="button"><span class="mono" id="pNextId"></span><span id="pNextName"></span></button>
+      </div>
+      <div class="parrows">
+        <button type="button" id="pUp" aria-label="이전 프리셋"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 8 L6 4 L10 8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <button type="button" id="pDown" aria-label="다음 프리셋"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 4 L6 8 L10 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      </div>
+    </div>
+    <div class="conn"><span class="led" id="connLed"></span><span id="connText">연결 안 됨</span></div>
+    <div class="spacer"></div>
+    <div class="snaps" role="group" aria-label="스냅샷">
+      <button type="button" data-snap="0" class="on">SNAP 1</button>
+      <button type="button" data-snap="1">SNAP 2</button>
+      <button type="button" data-snap="2">SNAP 3</button>
+    </div>
+    <button class="btn tap" type="button" id="tapBtn"><small>TAP</small><span id="bpm">—</span></button>
+    <button class="btn" type="button" id="tunerBtn">튜너</button>
+  </header>
+
+  <div class="main">
+    <section class="card board" aria-label="페이더">
+      <div class="bhead">
+        <h2>파라미터 페이더</h2>
+        <p>스톰프에서 MIDI CC를 할당한 파라미터만 움직여요 · 이름을 누르면 이름·CC 번호 변경</p>
+      </div>
+      <div class="faders" id="faders"></div>
+    </section>
+
+    <aside class="side">
+      <section class="card sec" aria-label="연결">
+        <h3>연결</h3>
+        <div class="row">
+          <button class="btn" type="button" id="connectBtn">MIDI 연결</button>
+          <label for="chSel">채널</label>
+          <select id="chSel"></select>
+        </div>
+        <div class="row"><label for="outSel">보내기</label><select id="outSel" style="flex:1"></select></div>
+        <div class="row"><label for="inSel">받기</label><select id="inSel" style="flex:1"></select></div>
+        <p class="note" id="connNote">아이패드에서는 'Web MIDI Browser' 앱으로 이 페이지를 열어야 MIDI가 연결돼요.</p>
+      </section>
+      <section class="card sec" aria-label="신호 기록" style="flex:1">
+        <div class="row"><h3 style="flex:1">신호 기록</h3><button class="btn" type="button" id="clearLog" style="height:34px;font-size:12px">지우기</button></div>
+        <div class="log" id="log" aria-live="polite"></div>
+        <p class="note">초록 = 스톰프에서 들어온 신호, 하늘색 = 보낸 신호. 본체에서 프리셋·스냅샷을 바꿨을 때 초록 줄이 생기는지 확인해 주세요.</p>
+      </section>
+    </aside>
+  </div>
+
+  <footer class="fs">
+    <button type="button" data-fs="49"><span class="ring" id="fs49"></span><small>FS1</small><span>풋스위치 1</span></button>
+    <button type="button" data-fs="50"><span class="ring" id="fs50"></span><small>FS2</small><span>풋스위치 2</span></button>
+    <button type="button" data-fs="51"><span class="ring" id="fs51"></span><small>FS3</small><span>풋스위치 3</span></button>
+  </footer>
+</div>
+
+<div class="tuner" id="tuner" hidden>
+  <div class="thead">
+    <button class="round" type="button" id="tunerClose" aria-label="튜너 닫기"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 3.5 L12.5 12.5 M12.5 3.5 L3.5 12.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+    <div style="display:flex;flex-direction:column;gap:2px"><b style="font-size:17px;font-weight:600">튜너</b><span style="font-size:12px;color:var(--dim)">기타 6현 · 스탠다드 · A=440</span></div>
+    <div class="spacer"></div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--mute)"><input type="checkbox" id="stompTuner"> 스톰프 튜너도 켜기</label>
+    <select id="audioSel" aria-label="소리 입력"></select>
+  </div>
+  <section class="card tcard">
+    <div class="ttop">
+      <div class="tnote"><b id="tNote">–</b><span id="tOct"></span></div>
+      <div style="display:flex;flex-direction:column;gap:10px;padding-bottom:10px">
+        <span class="badge" id="tBadge" style="color:var(--dim)"><i></i><span id="tState">소리를 기다리는 중</span></span>
+        <span style="font-size:15px;color:#c9ced4" id="tHint">줄 하나를 쳐 보세요</span>
+      </div>
+      <div class="spacer"></div>
+      <div style="display:flex;gap:36px;padding-bottom:10px">
+        <div class="stat"><small>CENT</small><b id="tCent">—</b></div>
+        <div class="stat"><small>HZ</small><b id="tHz">—</b></div>
+      </div>
+    </div>
+    <div class="graph" id="graph">
+      <canvas id="tCanvas"></canvas>
+      <div class="tmsg" id="tMsg" hidden></div>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem('stompRemote.' + k); return v == null ? d : JSON.parse(v); } catch (_) { return d; } },
+    set(k, v) { try { localStorage.setItem('stompRemote.' + k, JSON.stringify(v)); } catch (_) {} }
+  };
+
+  /* ---------- 상태 ---------- */
+  const S = {
+    midi: null, out: null, inp: null,
+    ch: store.get('ch', 0),
+    preset: store.get('preset', 0),
+    names: store.get('names', { 0: '1-1 실습', 1: '기본 어쿠스틱', 2: '예배 어쿠스틱' }),
+    snap: 0,
+    fs: { 49: false, 50: false, 51: false },
+    faders: store.get('faders', [
+      { name: 'Low Cut', cc: 20, v: 40 }, { name: 'Low Gain', cc: 21, v: 64 }, { name: 'High Gain', cc: 22, v: 64 },
+      { name: 'Comp', cc: 23, v: 50 }, { name: 'Reverb Mix', cc: 24, v: 30 }, { name: 'Delay Mix', cc: 25, v: 25 }
+    ]),
+    taps: []
+  };
+
+  /* ---------- 기록 ---------- */
+  const logEl = $('log');
+  const hex = (a) => Array.from(a).map(b => b.toString(16).padStart(2, '0')).join(' ');
+  function log(kind, text) {
+    const line = document.createElement('div');
+    line.className = kind;
+    const t = new Date();
+    line.textContent = t.toTimeString().slice(0, 8) + '  ' + text;
+    logEl.prepend(line);
+    while (logEl.childNodes.length > 120) logEl.lastChild.remove();
+  }
+  $('clearLog').onclick = () => { logEl.textContent = ''; };
+
+  /* ---------- 프리셋 ---------- */
+  const pid = (n) => String(Math.floor(n / 3) + 1).padStart(2, '0') + 'ABC'[n % 3];
+  const pname = (n) => S.names[n] || '';
+  function renderPreset() {
+    const n = S.preset;
+    $('pCurId').textContent = pid(n); $('pCurName').textContent = pname(n) || '(이름 없음)';
+    $('pPrevId').textContent = n > 0 ? pid(n - 1) : ''; $('pPrevName').textContent = n > 0 ? (pname(n - 1) || '—') : '';
+    $('pNextId').textContent = n < 125 ? pid(n + 1) : ''; $('pNextName').textContent = n < 125 ? (pname(n + 1) || '—') : '';
+  }
+  function goPreset(n, send) {
+    S.preset = Math.max(0, Math.min(125, n));
+    store.set('preset', S.preset);
+    renderPreset();
+    if (send) sendPC(S.preset);
+  }
+  $('pUp').onclick = () => goPreset(S.preset - 1, true);
+  $('pDown').onclick = () => goPreset(S.preset + 1, true);
+  $('pPrev').onclick = () => goPreset(S.preset - 1, true);
+  $('pNext').onclick = () => goPreset(S.preset + 1, true);
+  $('pCur').onclick = () => openNameEditor(
+    pname(S.preset), null,
+    (name) => { S.names[S.preset] = name; store.set('names', S.names); renderPreset(); },
+    $('pCur'), pid(S.preset) + ' 프리셋 이름'
+  );
+
+  /* ---------- 스냅샷 · 풋스위치 · 탭 ---------- */
+  const snapBtns = document.querySelectorAll('[data-snap]');
+  function setSnap(i, send) {
+    S.snap = i;
+    snapBtns.forEach(b => b.classList.toggle('on', +b.dataset.snap === i));
+    if (send) sendCC(69, i);
+  }
+  snapBtns.forEach(b => b.onclick = () => setSnap(+b.dataset.snap, true));
+
+  document.querySelectorAll('[data-fs]').forEach(b => b.onclick = () => {
+    const cc = +b.dataset.fs;
+    S.fs[cc] = !S.fs[cc];
+    $('fs' + cc).classList.toggle('lit', S.fs[cc]);
+    sendCC(cc, 127);
+  });
+
+  $('tapBtn').onclick = () => {
+    sendCC(64, 127);
+    const now = performance.now();
+    S.taps = S.taps.filter(t => now - t < 3000).concat([now]);
+    if (S.taps.length >= 2) {
+      const d = []; for (let i = 1; i < S.taps.length; i++) d.push(S.taps[i] - S.taps[i - 1]);
+      const avg = d.reduce((a, b) => a + b, 0) / d.length;
+      $('bpm').textContent = Math.round(60000 / avg);
+    }
+  };
+
+  /* ---------- 페이더 ---------- */
+  const fadersEl = $('faders');
+  function buildFaders() {
+    fadersEl.textContent = '';
+    S.faders.forEach((f, i) => {
+      const col = document.createElement('div'); col.className = 'fader';
+      const val = document.createElement('span'); val.className = 'fval';
+      const tr = document.createElement('div'); tr.className = 'track';
+      tr.setAttribute('role', 'slider'); tr.setAttribute('aria-valuemin', '0'); tr.setAttribute('aria-valuemax', '127'); tr.tabIndex = 0;
+      tr.innerHTML = '<span class="ticks"></span><span class="groove"></span><span class="fill"></span><span class="thumb"></span>';
+      const lab = document.createElement('button'); lab.type = 'button'; lab.className = 'flabel';
+      const cc = document.createElement('span'); cc.className = 'fcc';
+      col.append(val, tr, lab, cc);
+      fadersEl.append(col);
+      const paint = () => {
+        const p = f.v / 127;
+        tr.querySelector('.fill').style.height = (p * 100) + '%';
+        tr.querySelector('.thumb').style.top = ((1 - p) * 100) + '%';
+        val.textContent = f.v;
+        tr.setAttribute('aria-valuenow', f.v); tr.setAttribute('aria-label', f.name + ' ' + f.v);
+        lab.textContent = f.name; cc.textContent = 'CC ' + f.cc;
+      };
+      const setV = (v) => {
+        v = Math.max(0, Math.min(127, Math.round(v)));
+        if (v === f.v) return;
+        f.v = v; paint(); sendCC(f.cc, v, true); store.set('faders', S.faders);
+      };
+      let drag = false;
+      const fromY = (e) => { const r = tr.getBoundingClientRect(); return (1 - (e.clientY - r.top) / r.height) * 127; };
+      tr.addEventListener('pointerdown', (e) => { drag = true; try { tr.setPointerCapture(e.pointerId); } catch (_) {} setV(fromY(e)); });
+      tr.addEventListener('pointermove', (e) => { if (drag) setV(fromY(e)); });
+      tr.addEventListener('pointerup', () => { drag = false; });
+      tr.addEventListener('pointercancel', () => { drag = false; });
+      tr.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowUp') { setV(f.v + 1); e.preventDefault(); }
+        if (e.key === 'ArrowDown') { setV(f.v - 1); e.preventDefault(); }
+      });
+      lab.onclick = () => openNameEditor(f.name, f.cc, (name, num) => {
+        f.name = name || f.name; if (num != null) f.cc = num; store.set('faders', S.faders); paint();
+      }, lab, '페이더 이름과 CC 번호');
+      paint();
+    });
+  }
+
+  /* 간단한 편집 창 (prompt 대신) */
+  function openNameEditor(name, cc, done, anchor, title) {
+    const box = document.createElement('div');
+    box.style.cssText = 'position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px';
+    box.innerHTML =
+      '<form style="width:min(380px,100%);background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:12px">' +
+      '<b style="font-size:15px"></b>' +
+      '<label for="edName">이름</label><input id="edName" type="text" maxlength="16">' +
+      (cc != null ? '<label for="edCC">MIDI CC 번호 (스톰프에서 할당한 번호)</label><input id="edCC" type="number" min="0" max="127">' : '') +
+      '<div class="row" style="justify-content:flex-end"><button type="button" class="btn" id="edCancel">취소</button><button type="submit" class="btn" style="background:var(--fg);color:var(--bg);border-color:var(--fg)">저장</button></div></form>';
+    document.body.append(box);
+    box.querySelector('b').textContent = title;
+    const nm = box.querySelector('#edName'); nm.value = name || '';
+    const cci = box.querySelector('#edCC'); if (cci) cci.value = cc;
+    nm.focus();
+    const close = () => { box.remove(); anchor && anchor.focus(); };
+    box.querySelector('#edCancel').onclick = close;
+    box.querySelector('form').onsubmit = (e) => {
+      e.preventDefault();
+      let num = null;
+      if (cci) { num = Math.max(0, Math.min(127, parseInt(cci.value, 10) || 0)); }
+      done(nm.value.trim(), num); close();
+    };
+  }
+
+  /* ---------- MIDI ---------- */
+  const chSel = $('chSel');
+  for (let i = 0; i < 16; i++) { const o = document.createElement('option'); o.value = i; o.textContent = i + 1; chSel.append(o); }
+  chSel.value = S.ch;
+  chSel.onchange = () => { S.ch = +chSel.value; store.set('ch', S.ch); };
+
+  function send(bytes, label, quiet) {
+    if (!S.out) { if (!quiet) log('err', '보내지 못함 (연결 안 됨): ' + label); return; }
+    try { S.out.send(bytes); if (!quiet) log('out', '→ ' + label + '   [' + hex(bytes) + ']'); }
+    catch (e) { log('err', '보내기 실패: ' + e.message); }
+  }
+  let lastFaderLog = 0;
+  function sendCC(cc, v, isFader) {
+    const quiet = isFader && performance.now() - lastFaderLog < 250;
+    if (isFader && !quiet) lastFaderLog = performance.now();
+    send([0xB0 | S.ch, cc, v], 'CC ' + cc + ' = ' + v, quiet);
+  }
+  function sendPC(n) { send([0xC0 | S.ch, n], '프리셋 ' + pid(n) + ' (PC ' + n + ')'); }
+
+  function onMessage(e) {
+    const d = e.data; if (!d || !d.length) return;
+    const st = d[0] & 0xF0, ch = (d[0] & 0x0F);
+    if (d[0] === 0xF8 || d[0] === 0xFE) return; // 클럭·활성 감지는 기록하지 않음
+    if (st === 0xC0) {
+      log('in', '← 프리셋 ' + pid(d[1]) + ' (PC ' + d[1] + ', 채널 ' + (ch + 1) + ')');
+      goPreset(d[1], false);
+    } else if (st === 0xB0) {
+      log('in', '← CC ' + d[1] + ' = ' + d[2] + ' (채널 ' + (ch + 1) + ')');
+      if (d[1] === 69 && d[2] <= 2) setSnap(d[2], false);
+    } else {
+      log('in', '← [' + hex(d) + ']');
+    }
+  }
+
+  function fillPorts() {
+    const outSel = $('outSel'), inSel = $('inSel');
+    const outs = S.midi ? Array.from(S.midi.outputs.values()) : [];
+    const ins = S.midi ? Array.from(S.midi.inputs.values()) : [];
+    const fill = (sel, list) => {
+      const keep = sel.value; sel.textContent = '';
+      if (!list.length) { const o = document.createElement('option'); o.value = ''; o.textContent = '찾은 기기 없음'; sel.append(o); return; }
+      list.forEach(p => { const o = document.createElement('option'); o.value = p.id; o.textContent = p.name || p.id; sel.append(o); });
+      const hx = list.find(p => /hx|stomp|line ?6/i.test(p.name || ''));
+      sel.value = list.some(p => p.id === keep) ? keep : (hx ? hx.id : list[0].id);
+    };
+    fill(outSel, outs); fill(inSel, ins);
+    pickPorts();
+  }
+  function pickPorts() {
+    if (!S.midi) return;
+    if (S.inp) S.inp.onmidimessage = null;
+    S.out = S.midi.outputs.get($('outSel').value) || null;
+    S.inp = S.midi.inputs.get($('inSel').value) || null;
+    if (S.inp) S.inp.onmidimessage = onMessage;
+    const ok = !!S.out;
+    $('connLed').classList.toggle('on', ok);
+    $('connText').textContent = ok ? (S.out.name || 'MIDI') + ' · 연결됨' : '연결 안 됨';
+  }
+  $('outSel').onchange = pickPorts; $('inSel').onchange = pickPorts;
+
+  $('connectBtn').onclick = async () => {
+    if (!navigator.requestMIDIAccess) {
+      $('connNote').textContent = '이 브라우저는 MIDI를 지원하지 않아요. 아이패드에서는 Web MIDI Browser 앱, 컴퓨터에서는 크롬으로 열어 주세요.';
+      log('err', 'MIDI 지원 없음 (requestMIDIAccess 없음)');
+      return;
+    }
+    try {
+      S.midi = await navigator.requestMIDIAccess({ sysex: false });
+      S.midi.onstatechange = fillPorts;
+      fillPorts();
+      log('out', 'MIDI 사용 허락됨 · 보내기 ' + S.midi.outputs.size + '개, 받기 ' + S.midi.inputs.size + '개');
+      $('connNote').textContent = S.out ? '연결됐어요. 스냅샷 버튼을 눌러 스톰프가 반응하는지 확인해 보세요.' : 'MIDI는 켜졌지만 스톰프를 찾지 못했어요. USB 연결과 스톰프 전원을 확인해 주세요.';
+    } catch (e) {
+      log('err', 'MIDI 연결 실패: ' + (e && e.message ? e.message : e));
+      $('connNote').textContent = 'MIDI 사용이 거부됐어요. 앱 설정에서 MIDI 접근을 허용해 주세요.';
+    }
+  };
+
+  /* ---------- 튜너 ---------- */
+  const NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+  const T = { ctx: null, stream: null, an: null, buf: null, raf: 0, hist: [], cents: null, last: 0 };
+  const COL = { g: '#4ade80', y: '#e9c45a', r: '#ef6a6a' };
+  const TINT = { g: 'rgba(74,222,128,0.05)', y: 'rgba(233,196,90,0.12)', r: 'rgba(239,106,106,0.15)', n: 'transparent' };
+  const zone = (c) => Math.abs(c) <= 3 ? 'g' : (Math.abs(c) <= 15 ? 'y' : 'r');
+
+  function yin(buf, sr) {
+    const half = buf.length >> 1, d = new Float32Array(half);
+    for (let tau = 1; tau < half; tau++) {
+      let s = 0;
+      for (let i = 0; i < half; i++) { const x = buf[i] - buf[i + tau]; s += x * x; }
+      d[tau] = s;
+    }
+    d[0] = 1; let run = 0;
+    for (let tau = 1; tau < half; tau++) { run += d[tau]; d[tau] = d[tau] * tau / (run || 1); }
+    const minTau = Math.floor(sr / 1200), maxTau = Math.min(half - 2, Math.floor(sr / 60));
+    for (let tau = minTau; tau < maxTau; tau++) {
+      if (d[tau] < 0.12) {
+        while (tau + 1 < maxTau && d[tau + 1] < d[tau]) tau++;
+        const a = d[tau - 1], b = d[tau], c = d[tau + 1];
+        const shift = (a - c) / (2 * (a - 2 * b + c) || 1);
+        return sr / (tau + (isFinite(shift) ? shift : 0));
+      }
+    }
+    return 0;
+  }
+
+  async function listAudio() {
+    const sel = $('audioSel'); sel.textContent = '';
+    try {
+      const devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'audioinput');
+      devs.forEach(d => { const o = document.createElement('option'); o.value = d.deviceId; o.textContent = d.label || '소리 입력'; sel.append(o); });
+      const hx = devs.find(d => /hx|stomp|line ?6|usb/i.test(d.label || ''));
+      if (hx) sel.value = hx.deviceId;
+    } catch (_) {}
+    if (!sel.options.length) { const o = document.createElement('option'); o.value = ''; o.textContent = '기본 입력'; sel.append(o); }
+  }
+
+  async function startAudio(deviceId) {
+    stopAudio();
+    const msg = $('tMsg');
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      msg.hidden = false; msg.textContent = '이 브라우저에서는 소리 입력을 쓸 수 없어요.'; log('err', '소리 입력 지원 없음'); return;
+    }
+    try {
+      const audio = { echoCancellation: false, noiseSuppression: false, autoGainControl: false };
+      if (deviceId) audio.deviceId = { exact: deviceId };
+      T.stream = await navigator.mediaDevices.getUserMedia({ audio });
+      T.ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const src = T.ctx.createMediaStreamSource(T.stream);
+      T.an = T.ctx.createAnalyser(); T.an.fftSize = 4096;
+      src.connect(T.an);
+      T.buf = new Float32Array(T.an.fftSize);
+      msg.hidden = true;
+      log('out', '소리 입력 켜짐 · ' + (T.stream.getAudioTracks()[0].label || '입력') + ' · ' + T.ctx.sampleRate + 'Hz');
+      await listAudio();
+      loop();
+    } catch (e) {
+      msg.hidden = false; msg.textContent = '소리 입력을 켜지 못했어요. 마이크 사용을 허용했는지 확인해 주세요. (' + (e.name || e) + ')';
+      log('err', '소리 입력 실패: ' + (e.name || '') + ' ' + (e.message || ''));
+    }
+  }
+  function stopAudio() {
+    cancelAnimationFrame(T.raf);
+    if (T.stream) T.stream.getTracks().forEach(t => t.stop());
+    if (T.ctx) T.ctx.close().catch(() => {});
+    T.stream = T.ctx = T.an = null;
+  }
+
+  function loop() {
+    T.raf = requestAnimationFrame(loop);
+    const now = performance.now();
+    if (now - T.last < 45) return; T.last = now;
+    T.an.getFloatTimeDomainData(T.buf);
+    let rms = 0; for (let i = 0; i < T.buf.length; i++) rms += T.buf[i] * T.buf[i];
+    rms = Math.sqrt(rms / T.buf.length);
+    let f = 0;
+    if (rms > 0.006) f = yin(T.buf.subarray(0, 2048), T.ctx.sampleRate);
+    if (f > 55 && f < 1200) {
+      const m = 69 + 12 * Math.log2(f / 440), n = Math.round(m);
+      const c = (m - n) * 100;
+      T.cents = T.cents == null ? c : T.cents * 0.6 + c * 0.4;
+      showPitch(NAMES[(n % 12 + 12) % 12], Math.floor(n / 12) - 1, T.cents, f);
+      T.hist.push(T.cents);
+    } else {
+      T.hist.push(null);
+      if (T.hist.slice(-12).every(v => v == null)) { T.cents = null; idle(); }
+    }
+    if (T.hist.length > 220) T.hist.shift();
+    draw();
+  }
+
+  function idle() {
+    $('tNote').textContent = '–'; $('tNote').style.color = 'var(--dim)'; $('tOct').textContent = '';
+    $('tState').textContent = '소리를 기다리는 중'; $('tBadge').style.color = 'var(--dim)';
+    $('tHint').textContent = '줄 하나를 쳐 보세요'; $('tCent').textContent = '—'; $('tHz').textContent = '—';
+    $('graph').style.backgroundColor = TINT.n;
+  }
+  function showPitch(name, oct, c, f) {
+    const z = zone(c), col = COL[z];
+    $('tNote').textContent = name; $('tNote').style.color = col; $('tOct').textContent = oct;
+    $('tCent').textContent = (c > 0 ? '+' : '') + c.toFixed(1); $('tHz').textContent = f.toFixed(2);
+    $('tBadge').style.color = col;
+    $('tState').textContent = z === 'g' ? '정확해요' : (z === 'y' ? '조금 ' : '많이 ') + (c < 0 ? '낮아요' : '높아요');
+    $('tHint').textContent = z === 'g' ? '이대로 두면 돼요' : (c < 0 ? '줄감개를 조금 감아 음을 올리세요' : '줄감개를 조금 풀어 음을 내리세요');
+    $('graph').style.backgroundColor = TINT[z];
+  }
+
+  const cv = $('tCanvas');
+  function draw() {
+    const r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+    if (cv.width !== Math.round(r.width * dpr) || cv.height !== Math.round(r.height * dpr)) { cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr); }
+    const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const W = r.width, H = r.height, mid = H / 2, sc = (H * 0.44) / 50, hx = W * 0.75;
+    g.clearRect(0, 0, W, H);
+    g.fillStyle = 'rgba(74,222,128,0.13)'; g.fillRect(0, mid - 3 * sc, W, 6 * sc);
+    g.strokeStyle = 'rgba(74,222,128,0.35)'; g.lineWidth = 1; g.beginPath(); g.moveTo(0, mid); g.lineTo(W, mid); g.stroke();
+    g.strokeStyle = 'rgba(255,255,255,0.05)'; g.beginPath(); g.moveTo(hx, 0); g.lineTo(hx, H); g.stroke();
+    g.fillStyle = 'rgba(255,255,255,0.3)'; g.font = '18px ' + getComputedStyle(document.body).fontFamily;
+    g.fillText('♯', 24, 34); g.fillText('♭', 24, H - 18);
+    const y = (c) => Math.max(24, Math.min(H - 24, mid - c * sc));
+    const h = T.hist, n = h.length;
+    const col = T.cents == null ? '#7b838c' : COL[zone(T.cents)];
+    for (let i = 1; i < n; i++) {
+      if (h[i] == null || h[i - 1] == null) continue;
+      const x0 = hx * (i - 1) / 219 + (hx - hx * (n - 1) / 219), x1 = hx * i / 219 + (hx - hx * (n - 1) / 219);
+      g.globalAlpha = Math.pow(i / n, 1.6) * 0.9;
+      g.strokeStyle = col; g.lineWidth = 2.5; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(x0, y(h[i - 1])); g.lineTo(x1, y(h[i])); g.stroke();
+    }
+    g.globalAlpha = 1;
+    if (T.cents != null) {
+      const cy = y(T.cents);
+      const grd = g.createRadialGradient(hx, cy, 0, hx, cy, 70);
+      grd.addColorStop(0, col + '59'); grd.addColorStop(1, col + '00');
+      g.fillStyle = grd; g.beginPath(); g.arc(hx, cy, 70, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#0c0d0f'; g.strokeStyle = col; g.lineWidth = 2.5;
+      g.beginPath(); g.arc(hx, cy, 30, 0, Math.PI * 2); g.fill(); g.stroke();
+      g.fillStyle = '#fff'; g.font = '500 17px IBM Plex Mono, monospace'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText((T.cents > 0 ? '+' : '') + Math.round(T.cents), hx, cy + 1);
+      const z = zone(T.cents), label = z === 'g' ? '좋아요' : (T.cents < 0 ? '음 올리기' : '음 내리기');
+      g.font = '13px IBM Plex Sans KR, sans-serif';
+      const w = g.measureText(label).width + 28;
+      g.fillStyle = 'rgba(12,13,15,0.7)'; g.strokeStyle = 'rgba(255,255,255,0.1)'; g.lineWidth = 1;
+      roundRect(g, hx + 46, cy - 15, w, 30, 15); g.fill(); g.stroke();
+      g.fillStyle = '#e8eaed'; g.fillText(label, hx + 46 + w / 2, cy + 1);
+      g.textAlign = 'start'; g.textBaseline = 'alphabetic';
+    }
+  }
+  function roundRect(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+
+  $('stompTuner').checked = store.get('stompTuner', false);
+  $('stompTuner').onchange = () => store.set('stompTuner', $('stompTuner').checked);
+  $('tunerBtn').onclick = async () => {
+    $('tuner').hidden = false; T.hist = []; idle();
+    if ($('stompTuner').checked) sendCC(68, 127);
+    await startAudio($('audioSel').value || null);
+  };
+  $('tunerClose').onclick = () => {
+    stopAudio(); $('tuner').hidden = true;
+    if ($('stompTuner').checked) sendCC(68, 0);
+    $('tunerBtn').focus();
+  };
+  $('audioSel').onchange = () => startAudio($('audioSel').value || null);
+
+  /* ---------- 시작 ---------- */
+  renderPreset(); buildFaders(); idle();
+  log('out', '준비됨 · "MIDI 연결"을 눌러 시작하세요');
+})();
+</script>
+</body>
+</html>
