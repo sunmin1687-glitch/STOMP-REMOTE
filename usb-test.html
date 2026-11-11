@@ -2,8 +2,8 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>STOMP REMOTE · USB 연결 테스트</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Stomp Remote · 울트라</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#0c0d0f">
 <link rel="icon" href="icons/icon-192.png">
@@ -13,23 +13,134 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Stomp">
 <script>if('serviceWorker' in navigator){addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&family=Space+Grotesk:wght@400;500;700&display=swap">
 <style>
-  body { margin: 0; background: #0C0D0F; color: #F3F4F6; font-family: system-ui, -apple-system, "Noto Sans KR", sans-serif; }
-  main { max-width: 480px; margin: 0 auto; padding: 20px 18px 40px; display: flex; flex-direction: column; gap: 16px; }
-  h1 { font-size: 22px; margin: 0; }
-  p { margin: 0; color: #9BA1AC; font-size: 14px; line-height: 1.5; }
-  button { height: 56px; border-radius: 16px; border: none; background: #D4F25A; color: #12140A; font-size: 16px; font-weight: 700; }
-  button:disabled { background: #2A2D33; color: #9BA1AC; }
-  .card { background: #15171B; border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
-  .row { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
-  .row span:first-child { color: #9BA1AC; }
-  .ok { color: #D4F25A; font-weight: 700; }
-  .bad { color: #FF8A7E; font-weight: 700; }
-  pre { margin: 0; white-space: pre-wrap; word-break: break-all; font-size: 12px; color: #C9CED6; background: #0C0D0F; border-radius: 10px; padding: 10px; }
+:root{
+  --bg:#0C0D0F; --card:#15171B; --raise:#1D2025; --line:#23262C; --track:#2A2D33;
+  --fg:#F3F4F6; --mute:#9BA1AC; --soft:#C9CED6; --acc:#D4F25A; --on-acc:#12140A; --del:#FF8A7E;
+  --sans:'Noto Sans KR',system-ui,-apple-system,sans-serif; --num:'Space Grotesk',ui-monospace,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);-webkit-tap-highlight-color:transparent}
+button{font-family:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+body.v-iface #test{display:none}
+body.v-test #iface{display:none}
+
+/* ---------- 테스트 화면 ---------- */
+#test{max-width:480px;margin:0 auto;padding:max(20px,env(safe-area-inset-top)) 18px 40px;display:flex;flex-direction:column;gap:16px}
+#test h1{font-size:22px;margin:0}
+#test p{margin:0;color:var(--mute);font-size:14px;line-height:1.5}
+#test .big{height:56px;border-radius:16px;border:none;background:var(--acc);color:var(--on-acc);font-size:16px;font-weight:700}
+#test .big:disabled{background:var(--track);color:var(--mute)}
+#test .ghost{height:52px;border-radius:16px;border:1px solid var(--line);background:var(--card);font-size:15px;font-weight:500}
+#test .card{background:var(--card);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:10px}
+#test .row{display:flex;justify-content:space-between;gap:12px;font-size:14px}
+#test .row span:first-child{color:var(--mute)}
+.ok{color:var(--acc);font-weight:700}
+.bad{color:var(--del);font-weight:700}
+#test pre{margin:0;white-space:pre-wrap;word-break:break-all;font-size:12px;color:var(--soft);background:var(--bg);border-radius:10px;padding:10px}
+
+/* ---------- 인터페이스 공통 ---------- */
+#iface{max-width:480px;margin:0 auto;min-height:100vh;padding:max(16px,env(safe-area-inset-top)) 18px max(16px,env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:16px;user-select:none;-webkit-user-select:none}
+.top{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:44px}
+.badge{display:flex;align-items:center;gap:8px;font-family:var(--num);font-size:12px;letter-spacing:.12em;color:var(--mute)}
+.badge i{width:6px;height:6px;border-radius:50%;background:var(--acc)}
+.badge.demo i{background:#F5B248}
+.round{width:44px;height:44px;border-radius:50%;border:none;background:var(--card);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.chip{height:36px;padding:0 12px;border-radius:999px;border:none;background:var(--card);color:var(--mute);font-size:12px}
+.label{font-family:var(--num);font-size:11px;letter-spacing:.16em;color:var(--mute)}
+.linkbtn{border:none;background:none;color:var(--acc);font-size:14px;padding:10px 0 10px 12px;font-weight:500}
+.linkbtn.muted{color:var(--mute);padding:10px 12px 10px 0;font-weight:400}
+.title{font-size:16px;font-weight:700}
+.hero{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+.hero .id{font-family:var(--num);font-size:13px;color:var(--mute);letter-spacing:.08em}
+.hero .name{font-size:34px;font-weight:800;letter-spacing:-.03em;line-height:1.15;word-break:keep-all}
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:4px;background:var(--card);border-radius:16px;padding:4px}
+.seg button{height:44px;border-radius:12px;border:none;background:transparent;color:var(--mute);font-size:14px}
+.seg button.on{background:var(--acc);color:var(--on-acc);font-weight:700}
+.seg.light button.on{background:var(--fg);color:var(--bg)}
+.sw{width:48px;height:28px;border-radius:999px;border:none;background:var(--track);position:relative;padding:0;flex-shrink:0;transition:background .15s}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:var(--mute);transition:left .15s,background .15s}
+.sw.on{background:var(--acc)}
+.sw.on::after{left:23px;background:var(--on-acc)}
+.dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.cat{font-size:11px;color:var(--mute)}
+.ell{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* 메인 체인 */
+.chain{position:relative;display:flex;flex-direction:column}
+.chain::before{content:"";position:absolute;left:11px;top:24px;bottom:24px;width:1px;background:var(--track)}
+.crow{display:flex;align-items:center;gap:12px;height:52px;position:relative}
+.crow .open{flex:1;min-width:0;height:100%;display:flex;align-items:center;gap:14px;border:none;background:none;padding:0;text-align:left}
+.node{width:12px;height:12px;margin:0 5px;border-radius:50%;box-shadow:0 0 0 4px var(--bg);flex-shrink:0}
+.node.off{width:12px;height:12px;background:var(--bg)!important;border:2px solid}
+.crow .nm{font-size:15px;font-weight:500}
+.crow.off .nm{color:var(--mute)}
+.bar{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:auto}
+.bar button{height:58px;border-radius:16px;border:none;background:var(--card);font-size:13px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.bar .bpm{font-family:var(--num);font-size:18px;font-weight:700}
+.bar small{font-size:11px;color:var(--mute)}
+
+/* 편집 */
+.notice{display:flex;gap:10px;align-items:center;background:#1A1D12;border-radius:14px;padding:10px 12px;font-size:12px;color:#DDE5B8;line-height:1.4}
+.meter{height:6px;border-radius:999px;background:var(--raise);overflow:hidden}
+.meter i{display:block;height:100%;border-radius:999px;background:var(--acc);transition:width .2s}
+.meter.full i{background:var(--del)}
+.erow{display:flex;align-items:center;gap:10px;height:56px;background:var(--card);border-radius:14px;padding:0 4px 0 12px}
+.erow .txt{flex:1;min-width:0;display:flex;flex-direction:column}
+.ibtn{width:40px;height:44px;border-radius:10px;border:none;background:transparent;color:var(--soft);display:flex;align-items:center;justify-content:center;padding:0}
+.ibtn:disabled{opacity:.25}
+.ibtn.del{color:var(--del)}
+.ins{height:30px;border:none;background:none;color:var(--mute);font-size:12px;display:flex;align-items:center;justify-content:center;gap:6px;width:100%}
+.ins:active,.ins:hover{color:var(--acc)}
+.full{font-size:12px;color:var(--mute);text-align:center;padding:6px 0}
+
+/* 추가 */
+.search{display:flex;align-items:center;gap:10px;height:48px;background:var(--card);border-radius:14px;padding:0 14px}
+.search input{flex:1;background:transparent;border:none;outline:none;color:var(--fg);font-family:var(--sans);font-size:16px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips button{height:36px;padding:0 14px;border-radius:999px;border:none;background:var(--card);color:var(--soft);font-size:13px;display:flex;align-items:center;gap:6px}
+.chips button.on{background:var(--fg);color:var(--bg);font-weight:700}
+.models{display:flex;flex-direction:column;gap:6px}
+.models button{min-height:56px;border-radius:14px;border:1.5px solid transparent;background:var(--card);display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 16px;font-size:15px;text-align:left}
+.models button.on{border-color:var(--acc);font-weight:700}
+.cta{height:56px;border-radius:16px;border:none;background:var(--acc);color:var(--on-acc);font-size:15px;font-weight:700;width:100%}
+.cta:disabled{background:var(--track);color:var(--mute)}
+.empty{color:var(--mute);font-size:14px;text-align:center;padding:20px 0}
+
+/* 블록 편집 */
+.graph{background:var(--card);border-radius:22px;padding:12px 8px 6px;touch-action:none}
+.graph svg{display:block;width:100%;height:auto}
+.params{display:flex;flex-direction:column;gap:16px}
+.param .hd{display:flex;justify-content:space-between;align-items:baseline}
+.param label{font-size:13px;color:var(--mute)}
+.param .v{font-family:var(--num);font-size:22px;font-weight:700;letter-spacing:-.02em}
+.param input{width:100%;margin:4px 0 0;height:30px;accent-color:var(--acc)}
+.hint{font-size:12px;color:var(--mute);text-align:center}
+
+/* 연결·프리셋 */
+.dev{background:var(--card);border-radius:22px;padding:18px;display:flex;flex-direction:column;gap:12px}
+.kv{display:flex;justify-content:space-between;font-size:13px}
+.kv span:last-child{color:var(--mute);font-family:var(--num)}
+.sep{border-top:1px solid var(--line);padding-top:14px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.plist{display:flex;flex-direction:column;gap:2px}
+.plist button{min-height:50px;border-radius:14px;border:none;background:transparent;display:flex;align-items:center;gap:14px;padding:0 14px;font-size:15px;text-align:left}
+.plist button .pid{font-family:var(--num);font-size:13px;color:var(--mute);width:34px}
+.plist button.on{background:var(--card);font-weight:700}
+.plist button.on .pid{color:var(--acc)}
+
+.toast{position:fixed;left:50%;top:max(16px,env(safe-area-inset-top));transform:translate(-50%,-12px);max-width:calc(100% - 32px);padding:12px 16px;border-radius:12px;background:var(--fg);color:var(--bg);font-size:13px;line-height:1.5;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:50}
+.toast.on{opacity:1;transform:translate(-50%,0)}
 </style>
 </head>
-<body>
-<main>
+<body class="v-test">
+
+<!-- ================= 테스트 화면 ================= -->
+<main id="test">
   <h1>USB 연결 테스트</h1>
   <p>HX Stomp가 WebUSB로 잡히는지만 확인해요. 페달에는 아무 데이터도 보내지 않아요 (연결 → 정보 읽기 → 바로 해제).</p>
 
@@ -38,26 +149,30 @@
     <div class="row"><span>Web MIDI 지원</span><span id="webmidi">확인 중…</span></div>
   </div>
 
-  <button id="go">1. HX Stomp 찾기 (USB)</button>
-  <button id="midi">2. MIDI도 같이 잡히는지 확인</button>
+  <button class="big" id="go">1. HX Stomp 찾기 (USB)</button>
+  <button class="big" id="midi">2. MIDI도 같이 잡히는지 확인</button>
 
   <div class="card">
     <div class="row"><span>결과</span><span id="summary">아직 실행 안 함</span></div>
     <pre id="log"></pre>
   </div>
 
-  <p>끝나면 아래 결과 칸 내용을 통째로 복사해서 Claude에게 보내 주세요.</p>
+  <p>끝나면 결과 칸 내용을 통째로 복사해서 Claude에게 보내 주세요.</p>
+  <button class="ghost" id="toIface">인터페이스 둘러보기 (연습 모드)</button>
 </main>
 
+<!-- ================= 인터페이스 ================= -->
+<div id="iface"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
 <script>
+/* ---------------- 테스트 화면 (페달에 데이터 보내지 않음) ---------------- */
+(function(){
 const logEl = document.getElementById('log');
 const summaryEl = document.getElementById('summary');
 function log(msg) { logEl.textContent += msg + '\n'; }
 function hex(n, w) { return '0x' + n.toString(16).toUpperCase().padStart(w || 4, '0'); }
-function setSummary(text, good) {
-  summaryEl.textContent = text;
-  summaryEl.className = good ? 'ok' : 'bad';
-}
+function setSummary(text, good) { summaryEl.textContent = text; summaryEl.className = good ? 'ok' : 'bad'; }
 
 const hasUsb = 'usb' in navigator;
 const hasMidi = 'requestMIDIAccess' in navigator;
@@ -69,7 +184,7 @@ if (!hasUsb) {
 }
 log('브라우저: ' + navigator.userAgent);
 
-// Line 6 vendor ID. 0x4246 = HX Stomp, 0x4253 = HX Stomp XL (from public USB logs / OpenHX docs)
+// Line 6 vendor ID. 0x4246 = HX Stomp, 0x4253 = HX Stomp XL (public USB logs / OpenHX docs)
 const LINE6_VENDOR = 0x0E41;
 
 document.getElementById('go').addEventListener('click', async () => {
@@ -141,6 +256,402 @@ document.getElementById('midi').addEventListener('click', async () => {
     log('MIDI 오류: ' + e.name + ' – ' + e.message);
   }
 });
+})();
+</script>
+
+<script>
+/* ---------------- 인터페이스 (연습 모드: 가짜 데이터, 페달 통신 없음) ---------------- */
+(function(){
+const root = document.getElementById('iface');
+const toastEl = document.getElementById('toast');
+const MAX_BLOCKS = 8;
+
+const CATS = {
+  dyn:   { name:'다이내믹',  color:'#7AA7FF', dsp:6,  models:['Deluxe Comp','LA Studio Comp','Red Squeeze','Noise Gate'] },
+  drive: { name:'드라이브',  color:'#F5B248', dsp:7,  models:['Minotaur','Kinky Boost','Scream 808','Teemah!'] },
+  amp:   { name:'앰프',      color:'#FF7A6B', dsp:22, models:['Acoustic Sim','US Double Nrm','Brit Plexi Nrm','Essex A30'] },
+  eq:    { name:'EQ',        color:'#8FDB7A', dsp:4,  models:['Parametric','Simple EQ','Low/High Cut'] },
+  mod:   { name:'모듈레이션', color:'#C595FF', dsp:8,  models:['Chorus','Tremolo','Script Mod Phase','Optical Trem'] },
+  delay: { name:'딜레이',    color:'#5FD0EE', dsp:9,  models:['Simple Delay','Transistor Tape','Adriatic Delay','Ducked Delay'] },
+  verb:  { name:'리버브',    color:'#FF9FCB', dsp:18, models:['Plateaux','Glitz','Room','Hall'] },
+  vol:   { name:'볼륨',      color:'#C3C8D1', dsp:2,  models:['Volume Pedal','Gain'] }
+};
+const CAT_ORDER = ['dyn','drive','amp','eq','mod','delay','verb','vol'];
+const PARAMS = {
+  dyn:   [['Threshold','x10'],['Ratio','x10'],['Level','x10']],
+  drive: [['Drive','x10'],['Tone','x10'],['Level','x10']],
+  amp:   [['Drive','x10'],['Bass','x10'],['Mid','x10'],['Treble','x10'],['Ch Vol','x10']],
+  mod:   [['Speed','x10'],['Depth','x10'],['Mix','pct']],
+  delay: [['Time','ms'],['Feedback','pct'],['Mix','pct']],
+  verb:  [['Decay','x10'],['Predelay','ms100'],['Mix','pct']],
+  vol:   [['Position','pct']]
+};
+const PRESETS = ['예배 클린','예배 크런치','앰비언트 패드','밴드 리듬','밴드 리드','어쿠스틱 DI','재즈 클린','녹음용 드라이','빈 프리셋'];
+const PID = i => String(Math.floor(i/3)+1).padStart(2,'0') + 'ABC'[i%3];
+
+let uidSeq = 1;
+function makeBlock(cat, model){
+  const b = { uid: uidSeq++, cat, model };
+  if (cat === 'eq') b.bands = [{f:120,g:-1.5,q:0.7},{f:800,g:3,q:1.2},{f:6500,g:-2,q:0.9}];
+  else b.params = (PARAMS[cat]||[]).map(([label,fmt],i) => ({ label, fmt, v: [0.55,0.4,0.6,0.5,0.7][i] }));
+  return b;
+}
+function clone(x){ return JSON.parse(JSON.stringify(x)); }
+
+const S = {
+  screen:'main', preset:0, snap:1, allowEdit:true, bpm:92, taps:[],
+  chain:[ makeBlock('dyn','Deluxe Comp'), makeBlock('drive','Minotaur'), makeBlock('amp','Acoustic Sim'),
+          makeBlock('eq','Parametric'), makeBlock('mod','Chorus'), makeBlock('delay','Simple Delay'),
+          makeBlock('verb','Plateaux'), makeBlock('vol','Volume Pedal') ],
+  off:[{},{},{}],
+  draft:null, insertAt:0, addCat:'drive', addModel:'Minotaur', addQuery:'',
+  blockUid:null, band:1
+};
+// 스냅샷별 꺼진 블록: 벌스=드라이브·코러스 끔, 코러스=코러스 끔, 솔로=전부 켬
+S.off[0][S.chain[1].uid]=true; S.off[0][S.chain[4].uid]=true; S.off[1][S.chain[4].uid]=true;
+
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let toastT;
+function toast(msg){ toastEl.textContent = msg; toastEl.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(()=>toastEl.classList.remove('on'), 2200); }
+const dspOf = list => list.reduce((s,b)=>s+CATS[b.cat].dsp,0);
+const fmtParam = (p) => {
+  switch(p.fmt){
+    case 'ms': return Math.round(20 + p.v*1980) + ' ms';
+    case 'ms100': return Math.round(p.v*100) + ' ms';
+    case 'pct': return Math.round(p.v*100) + '%';
+    default: return (p.v*10).toFixed(1);
+  }
+};
+
+const I = {
+  back:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>',
+  next:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>',
+  close:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  set:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>',
+  tuner:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 4v16M7 8v8M17 8v8M3 11v2M21 11v2"/></svg>',
+  grid:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/></svg>',
+  up:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>',
+  down:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>',
+  trash:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
+  plus:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
+  check:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#D4F25A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>',
+  shield:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D4F25A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg>',
+  search:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9BA1AC" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>'
+};
+
+/* ---------- 화면 그리기 ---------- */
+function vMain(){
+  const off = S.off[S.snap];
+  const rows = S.chain.map(b => {
+    const c = CATS[b.cat], isOff = !!off[b.uid];
+    return `<div class="crow ${isOff?'off':''}">
+      <button class="open" data-act="openBlock" data-uid="${b.uid}">
+        <span class="node ${isOff?'off':''}" style="${isOff?'border-color':'background'}:${c.color}"></span>
+        <span style="display:flex;flex-direction:column;min-width:0"><span class="nm ell">${esc(b.model)}</span><span class="cat">${c.name}</span></span>
+      </button>
+      <button class="sw ${isOff?'':'on'}" data-act="toggleBlock" data-uid="${b.uid}" aria-label="${esc(b.model)} ${isOff?'켜기':'끄기'}"></button>
+    </div>`;
+  }).join('');
+  return `
+  <div class="top">
+    <span class="badge demo"><i></i>연습 모드 · 페달 없음</span>
+    <div style="display:flex;gap:8px">
+      <button class="chip" data-act="toTest">테스트 화면</button>
+      <button class="round" data-act="go" data-to="presets" aria-label="연결·프리셋">${I.set}</button>
+    </div>
+  </div>
+  <div class="hero">
+    <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
+      <span class="id">PRESET ${PID(S.preset)}</span>
+      <span class="name">${esc(PRESETS[S.preset])}</span>
+    </div>
+    <div style="display:flex;gap:6px">
+      <button class="round" data-act="presetStep" data-d="-1" aria-label="이전 프리셋">${I.back}</button>
+      <button class="round" data-act="presetStep" data-d="1" aria-label="다음 프리셋">${I.next}</button>
+    </div>
+  </div>
+  <div class="seg" role="group" aria-label="스냅샷">
+    ${['벌스','코러스','솔로'].map((n,i)=>`<button class="${S.snap===i?'on':''}" data-act="snap" data-i="${i}">${n}</button>`).join('')}
+  </div>
+  <div>
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <span class="label">SIGNAL CHAIN · ${S.chain.length}/${MAX_BLOCKS}</span>
+      <button class="linkbtn" data-act="startEdit">체인 편집</button>
+    </div>
+    <div class="chain">${rows || '<div class="empty">블록이 없어요</div>'}</div>
+  </div>
+  <div class="bar">
+    <button data-act="tuner">${I.tuner}튜너</button>
+    <button data-act="tap"><span class="bpm" id="bpm">${S.bpm}</span><small>탭 템포</small></button>
+    <button data-act="go" data-to="presets">${I.grid}프리셋</button>
+  </div>`;
+}
+
+function vEdit(){
+  const d = S.draft, dsp = dspOf(d), full = d.length >= MAX_BLOCKS;
+  const ins = i => full ? '' : `<button class="ins" data-act="insertAt" data-i="${i}">${I.plus}여기에 추가</button>`;
+  let list = ins(0);
+  d.forEach((b,i) => {
+    const c = CATS[b.cat];
+    list += `<div class="erow">
+      <span class="dot" style="background:${c.color}"></span>
+      <span class="txt"><span class="ell" style="font-size:14px;font-weight:500">${esc(b.model)}</span><span class="cat">${c.name}</span></span>
+      <button class="ibtn" data-act="move" data-i="${i}" data-d="-1" ${i===0?'disabled':''} aria-label="${esc(b.model)} 위로">${I.up}</button>
+      <button class="ibtn" data-act="move" data-i="${i}" data-d="1" ${i===d.length-1?'disabled':''} aria-label="${esc(b.model)} 아래로">${I.down}</button>
+      <button class="ibtn del" data-act="remove" data-i="${i}" aria-label="${esc(b.model)} 삭제">${I.trash}</button>
+    </div>` + ins(i+1);
+  });
+  return `
+  <div class="top">
+    <button class="linkbtn muted" data-act="cancelEdit">취소</button>
+    <span class="title">체인 편집</span>
+    <button class="linkbtn" data-act="doneEdit" style="font-weight:700">완료</button>
+  </div>
+  <div class="notice">${I.shield}<span>완료를 눌러야 적용돼요<br>연습 모드라 페달에는 보내지 않아요</span></div>
+  <div style="display:flex;flex-direction:column;gap:6px">
+    <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mute)">DSP 사용량 (예상치)</span><span style="font-family:var(--num)">${dsp}% · 블록 ${d.length}/${MAX_BLOCKS}</span></div>
+    <div class="meter ${dsp>100?'full':''}"><i style="width:${Math.min(dsp,100)}%"></i></div>
+  </div>
+  <div style="display:flex;flex-direction:column">${list}</div>
+  ${full?'<div class="full">블록이 가득 찼어요 (최대 8개). 하나를 지워야 추가할 수 있어요.</div>':''}
+  ${d.length===0?'<div class="empty">블록을 모두 지웠어요. 위의 "여기에 추가"로 넣어 보세요.</div>':''}`;
+}
+
+function vAdd(){
+  const q = S.addQuery.trim().toLowerCase();
+  let models;
+  if (q) {
+    models = [];
+    CAT_ORDER.forEach(k => CATS[k].models.forEach(m => { if (m.toLowerCase().includes(q) || CATS[k].name.includes(q)) models.push([k,m]); }));
+  } else {
+    models = CATS[S.addCat].models.map(m => [S.addCat, m]);
+  }
+  const prev = S.draft[S.insertAt-1], next = S.draft[S.insertAt];
+  const where = `${prev?esc(prev.model):'입력'} <span style="color:var(--mute)">→</span> <b style="color:var(--acc)">새 블록</b> <span style="color:var(--mute)">→</span> ${next?esc(next.model):'출력'}`;
+  return `
+  <div class="top">
+    <button class="round" data-act="go" data-to="edit" aria-label="닫기">${I.close}</button>
+    <span class="title">블록 추가</span>
+    <span style="width:44px"></span>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:4px"><span class="label">위치</span><span style="font-size:15px">${where}</span></div>
+  <label class="search">${I.search}<input id="q" type="search" placeholder="블록 이름 검색" aria-label="블록 이름 검색" value="${esc(S.addQuery)}"></label>
+  <div class="chips" ${q?'hidden':''}>
+    ${CAT_ORDER.map(k=>`<button class="${S.addCat===k?'on':''}" data-act="addCat" data-k="${k}"><span class="dot" style="width:8px;height:8px;background:${CATS[k].color}"></span>${CATS[k].name}</button>`).join('')}
+  </div>
+  <div class="models">
+    ${models.length ? models.map(([k,m]) => { const on = S.addModel===m && (q || S.addCat===k);
+      return `<button class="${on?'on':''}" data-act="pickModel" data-k="${k}" data-m="${esc(m)}"><span style="display:flex;flex-direction:column"><span>${esc(m)}</span>${q?`<span class="cat">${CATS[k].name}</span>`:''}</span>${on?I.check:''}</button>`; }).join('')
+      : '<div class="empty">검색 결과가 없어요</div>'}
+  </div>
+  <div style="margin-top:auto"><button class="cta" data-act="addBlock" ${S.addModel?'':'disabled'}>${S.addModel?esc(S.addModel)+' 추가':'블록을 골라 주세요'}</button></div>`;
+}
+
+function vBlock(){
+  const b = S.chain.find(x => x.uid === S.blockUid);
+  if (!b) { S.screen = 'main'; return vMain(); }
+  const c = CATS[b.cat], isOff = !!S.off[S.snap][b.uid];
+  const head = `
+  <div class="top" style="justify-content:flex-start;gap:12px">
+    <button class="round" data-act="go" data-to="main" aria-label="메인으로">${I.back}</button>
+    <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+      <span class="label">${c.name.toUpperCase()} · BLOCK ${S.chain.indexOf(b)+1}</span>
+      <span class="ell" style="font-size:20px;font-weight:800;letter-spacing:-.02em">${esc(b.model)}</span>
+    </div>
+    <button class="sw ${isOff?'':'on'}" data-act="toggleBlock" data-uid="${b.uid}" aria-label="블록 ${isOff?'켜기':'끄기'}"></button>
+  </div>`;
+  if (b.cat === 'eq') {
+    const band = b.bands[S.band];
+    return head + `
+    <div class="graph"><svg id="eq" viewBox="0 0 340 210" role="img" aria-label="EQ 주파수 응답 그래프"></svg></div>
+    <div class="seg light" role="group" aria-label="밴드">${['저음','중음','고음'].map((n,i)=>`<button class="${S.band===i?'on':''}" data-act="band" data-i="${i}">${n}</button>`).join('')}</div>
+    <div class="params">
+      ${paramRow('eqf','주파수',fmtF(band.f),'0','1000','1',Math.round(f2s(band.f)*1000))}
+      ${paramRow('eqg','게인',fmtG(band.g),'-120','120','1',Math.round(band.g*10))}
+      ${paramRow('eqq','Q (폭)',band.q.toFixed(2),'20','400','1',Math.round(band.q*100))}
+    </div>
+    <div class="hint" style="margin-top:auto">점을 끌면 주파수(좌우)·게인(상하)이 함께 바뀌어요</div>`;
+  }
+  return head + `
+  <div class="params" style="background:var(--card);border-radius:22px;padding:18px">
+    ${b.params.map((p,i)=>paramRow('p'+i,p.label,fmtParam(p),'0','1000','1',Math.round(p.v*1000))).join('')}
+  </div>
+  <div class="hint" style="margin-top:auto">연습 모드 · 값은 이 화면에서만 바뀌어요</div>`;
+}
+function paramRow(id,label,val,min,max,step,v){
+  return `<div class="param"><div class="hd"><label for="${id}">${label}</label><span class="v" id="${id}-v">${val}</span></div>
+  <input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${v}"></div>`;
+}
+
+function vPresets(){
+  return `
+  <div class="top" style="justify-content:flex-start;gap:12px">
+    <button class="round" data-act="go" data-to="main" aria-label="메인으로">${I.back}</button>
+    <span style="font-size:20px;font-weight:800;letter-spacing:-.02em">연결 · 프리셋</span>
+  </div>
+  <div class="dev">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div style="display:flex;flex-direction:column;gap:2px"><span class="label">DEVICE</span><span style="font-size:18px;font-weight:700">연결된 페달 없음</span></div>
+      <span class="badge demo"><i></i>연습 모드</span>
+    </div>
+    <div class="kv"><span>상태 읽기</span><span>WebUSB · 대기</span></div>
+    <div class="kv"><span>값 조절</span><span>MIDI · 대기</span></div>
+    <div class="sep">
+      <div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:500">체인 편집 허용</span><span style="font-size:12px;color:var(--mute)">켜면 블록 추가·삭제를 페달에 보내요</span></div>
+      <button class="sw ${S.allowEdit?'on':''}" data-act="allowEdit" aria-label="체인 편집 허용 ${S.allowEdit?'끄기':'켜기'}"></button>
+    </div>
+    <button class="cta" data-act="toTest" style="height:48px;font-size:14px;background:var(--raise);color:var(--fg)">USB 연결 테스트 화면으로</button>
+  </div>
+  <div style="display:flex;justify-content:space-between;align-items:baseline"><span class="label">PRESETS</span><span style="font-size:12px;color:var(--mute)">누르면 바로 전환</span></div>
+  <div class="plist">
+    ${PRESETS.map((n,i)=>`<button class="${S.preset===i?'on':''}" data-act="pickPreset" data-i="${i}"><span class="pid">${PID(i)}</span><span style="flex:1">${esc(n)}</span>${S.preset===i?'<span class="dot" style="width:6px;height:6px;background:var(--acc)"></span>':''}</button>`).join('')}
+  </div>`;
+}
+
+function render(){
+  const v = { main:vMain, edit:vEdit, add:vAdd, block:vBlock, presets:vPresets }[S.screen] || vMain;
+  root.innerHTML = v();
+  if (S.screen === 'block') drawEq();
+  if (S.screen === 'add') {
+    const q = document.getElementById('q');
+    q.addEventListener('input', () => { S.addQuery = q.value; const pos = q.selectionStart; render(); const n = document.getElementById('q'); n.focus(); try{ n.setSelectionRange(pos,pos); }catch(e){} });
+  }
+}
+function go(screen){ S.screen = screen; render(); window.scrollTo(0,0); }
+
+/* ---------- EQ 그래프 ---------- */
+const GW = 340, GH = 190, FMIN = 20, FMAX = 20000, GMAX = 12;
+const f2s = f => Math.log10(f/FMIN)/Math.log10(FMAX/FMIN);
+const s2f = s => FMIN*Math.pow(FMAX/FMIN, s);
+const fx = f => f2s(f)*GW;
+const gy = g => GH/2 - g*(GH/2-14)/GMAX;
+const fmtF = f => f >= 1000 ? (f/1000).toFixed(f>=10000?1:2).replace(/\.?0+$/,'') + ' kHz' : Math.round(f) + ' Hz';
+const fmtG = g => (g>0?'+':g<0?'−':'') + Math.abs(g).toFixed(1) + ' dB';
+function resp(bands, f){ return bands.reduce((s,b) => { const o = Math.log2(f/b.f), w = 0.9/b.q; return s + b.g*Math.exp(-0.5*(o/w)*(o/w)); }, 0); }
+function curEqBlock(){ return S.chain.find(x => x.uid === S.blockUid); }
+function drawEq(){
+  const svg = document.getElementById('eq'); if (!svg) return;
+  const b = curEqBlock(); if (!b || !b.bands) return;
+  let d = '';
+  for (let i = 0; i <= 160; i++) { const s = i/160, f = s2f(s), y = Math.max(2, Math.min(GH-2, gy(resp(b.bands,f)))); d += (i?'L':'M') + (s*GW).toFixed(1) + ',' + y.toFixed(1); }
+  const grid = [100,1000,10000].map(f => `<line x1="${fx(f)}" y1="0" x2="${fx(f)}" y2="${GH}" stroke="#23262C"/><text x="${fx(f)+3}" y="${GH+16}" fill="#9BA1AC" font-size="10" font-family="Space Grotesk">${f>=1000?f/1000+'k':f}</text>`).join('');
+  const pts = b.bands.map((bd,i) => {
+    const x = fx(bd.f), y = gy(bd.g), on = i === S.band;
+    return `<g data-band="${i}" style="cursor:grab"><circle cx="${x}" cy="${y}" r="24" fill="transparent"/>
+      <circle cx="${x}" cy="${y}" r="${on?13:11}" fill="${on?'#D4F25A':'#15171B'}" stroke="${on?'#0C0D0F':'#9BA1AC'}" stroke-width="${on?3:2}"/>
+      <text x="${x}" y="${y+4}" text-anchor="middle" font-size="11" font-weight="700" font-family="Space Grotesk" fill="${on?'#12140A':'#F3F4F6'}" pointer-events="none">${i+1}</text></g>`;
+  }).join('');
+  svg.innerHTML = `${grid}
+    <line x1="0" y1="${GH/2}" x2="${GW}" y2="${GH/2}" stroke="#33373F"/>
+    <text x="4" y="${gy(6)-4}" fill="#9BA1AC" font-size="10" font-family="Space Grotesk">+6</text>
+    <text x="4" y="${gy(-6)-4}" fill="#9BA1AC" font-size="10" font-family="Space Grotesk">−6</text>
+    <path d="${d}L${GW},${GH}L0,${GH}Z" fill="#D4F25A" fill-opacity=".08"/>
+    <path d="${d}" fill="none" stroke="#D4F25A" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>${pts}`;
+}
+function syncEqInputs(){
+  const b = curEqBlock(); const bd = b.bands[S.band];
+  const set = (id, v, txt) => { const el = document.getElementById(id); if (el) el.value = v; const t = document.getElementById(id+'-v'); if (t) t.textContent = txt; };
+  set('eqf', Math.round(f2s(bd.f)*1000), fmtF(bd.f));
+  set('eqg', Math.round(bd.g*10), fmtG(bd.g));
+  set('eqq', Math.round(bd.q*100), bd.q.toFixed(2));
+}
+let drag = null;
+root.addEventListener('pointerdown', e => {
+  const g = e.target.closest && e.target.closest('#eq g[data-band]'); if (!g) return;
+  e.preventDefault();
+  const i = +g.dataset.band;
+  if (S.band !== i) { S.band = i; render(); }
+  drag = { svg: document.getElementById('eq'), id: e.pointerId };
+  try { drag.svg.setPointerCapture(e.pointerId); } catch(err) {}
+});
+root.addEventListener('pointermove', e => {
+  if (!drag || e.pointerId !== drag.id) return;
+  const r = drag.svg.getBoundingClientRect();
+  const x = (e.clientX - r.left)/r.width*GW, y = (e.clientY - r.top)/r.height*210;
+  const bd = curEqBlock().bands[S.band];
+  bd.f = Math.round(s2f(Math.max(0, Math.min(1, x/GW))));
+  bd.g = Math.round(Math.max(-GMAX, Math.min(GMAX, (GH/2 - y)*GMAX/(GH/2-14)))*10)/10;
+  drawEq(); syncEqInputs();
+});
+const endDrag = () => { drag = null; };
+root.addEventListener('pointerup', endDrag);
+root.addEventListener('pointercancel', endDrag);
+
+/* ---------- 슬라이더 ---------- */
+root.addEventListener('input', e => {
+  const el = e.target; if (el.type !== 'range') return;
+  const b = S.chain.find(x => x.uid === S.blockUid); if (!b) return;
+  const out = document.getElementById(el.id + '-v');
+  if (b.bands) {
+    const bd = b.bands[S.band];
+    if (el.id === 'eqf') { bd.f = Math.round(s2f(el.value/1000)); out.textContent = fmtF(bd.f); }
+    if (el.id === 'eqg') { bd.g = el.value/10; out.textContent = fmtG(bd.g); }
+    if (el.id === 'eqq') { bd.q = el.value/100; out.textContent = bd.q.toFixed(2); }
+    drawEq();
+  } else {
+    const p = b.params[+el.id.slice(1)]; p.v = el.value/1000; out.textContent = fmtParam(p);
+  }
+});
+
+/* ---------- 버튼 동작 ---------- */
+const ACT = {
+  go: t => go(t.dataset.to),
+  toTest: () => setView('test'),
+  presetStep: t => { S.preset = (S.preset + (+t.dataset.d) + PRESETS.length) % PRESETS.length; render(); },
+  pickPreset: t => { S.preset = +t.dataset.i; toast(PID(S.preset) + ' ' + PRESETS[S.preset] + '(으)로 전환 · 연습 모드'); go('main'); },
+  snap: t => { S.snap = +t.dataset.i; render(); },
+  toggleBlock: t => { const u = +t.dataset.uid, m = S.off[S.snap]; if (m[u]) delete m[u]; else m[u] = true; render(); },
+  openBlock: t => { S.blockUid = +t.dataset.uid; S.band = 1; go('block'); },
+  band: t => { S.band = +t.dataset.i; render(); },
+  tuner: () => toast('튜너는 페달을 연결해야 쓸 수 있어요'),
+  tap: () => {
+    const now = performance.now(); S.taps = S.taps.filter(x => now - x < 2500); S.taps.push(now);
+    if (S.taps.length >= 2) { const iv = []; for (let i = 1; i < S.taps.length; i++) iv.push(S.taps[i]-S.taps[i-1]);
+      const avg = iv.slice(-4).reduce((a,b)=>a+b,0)/Math.min(iv.length,4); S.bpm = Math.max(30, Math.min(300, Math.round(60000/avg))); }
+    const el = document.getElementById('bpm'); if (el) el.textContent = S.bpm;
+  },
+  allowEdit: () => { S.allowEdit = !S.allowEdit; render(); },
+  startEdit: () => {
+    if (!S.allowEdit) { toast("연결·프리셋 화면에서 '체인 편집 허용'을 켜 주세요"); return; }
+    S.draft = clone(S.chain); go('edit');
+  },
+  cancelEdit: () => { S.draft = null; go('main'); },
+  doneEdit: () => {
+    if (dspOf(S.draft) > 100) { toast('DSP가 100%를 넘어요. 블록을 줄여 주세요'); return; }
+    S.chain = S.draft; S.draft = null;
+    const alive = new Set(S.chain.map(b => b.uid));
+    S.off.forEach(m => Object.keys(m).forEach(k => { if (!alive.has(+k)) delete m[k]; }));
+    toast('체인 적용됨 · 연습 모드라 페달에는 보내지 않았어요'); go('main');
+  },
+  move: t => { const i = +t.dataset.i, j = i + (+t.dataset.d), d = S.draft; if (j < 0 || j >= d.length) return; [d[i], d[j]] = [d[j], d[i]]; render(); },
+  remove: t => { const b = S.draft.splice(+t.dataset.i, 1)[0]; render(); toast(b.model + ' 삭제 · 취소를 누르면 되돌아가요'); },
+  insertAt: t => { S.insertAt = +t.dataset.i; S.addQuery = ''; S.addModel = CATS[S.addCat].models[0]; go('add'); },
+  addCat: t => { S.addCat = t.dataset.k; S.addModel = CATS[S.addCat].models[0]; render(); },
+  pickModel: t => { S.addCat = t.dataset.k; S.addModel = t.dataset.m; render(); },
+  addBlock: () => {
+    if (S.draft.length >= MAX_BLOCKS) { toast('블록은 최대 8개까지예요'); return; }
+    S.draft.splice(S.insertAt, 0, makeBlock(S.addCat, S.addModel)); toast(S.addModel + ' 추가'); go('edit');
+  }
+};
+root.addEventListener('click', e => {
+  const t = e.target.closest('[data-act]'); if (!t || !root.contains(t) || t.disabled) return;
+  const f = ACT[t.dataset.act]; if (f) f(t);
+});
+
+/* ---------- 테스트 화면 ↔ 인터페이스 전환 ---------- */
+const KEY = 'stompUltra.view';
+function setView(v){
+  document.body.classList.toggle('v-iface', v === 'iface');
+  document.body.classList.toggle('v-test', v !== 'iface');
+  try { localStorage.setItem(KEY, v); } catch(e) {}
+  if (v === 'iface') render();
+  window.scrollTo(0,0);
+}
+document.getElementById('toIface').addEventListener('click', () => setView('iface'));
+let start = 'test';
+try { if (new URLSearchParams(location.search).get('view') === 'iface' || localStorage.getItem(KEY) === 'iface') start = 'iface'; } catch(e) {}
+setView(start);
+})();
 </script>
 </body>
 </html>
