@@ -121,12 +121,6 @@ select,input[type=text],input[type=number]{height:40px;border-radius:10px;border
 :root{--rm-bg:#0c0d0f;--rm-panel:#121417;--rm-raise:#15171a;--rm-deep:#0e1012;--rm-line:#23262b;--rm-line2:#1f2226;--rm-fg:#e8eaed;--rm-mute:#aab1b9;--rm-dim:#7b838c;--rm-faint:#5f666e;--rm-acc:#5ec8ff;--rm-ok:#4ade80;--rm-warn:#e9c45a;--rm-bad:#ef6a6a;--rm-mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;--rm-sans:'IBM Plex Sans KR',-apple-system,"Apple SD Gothic Neo",sans-serif;color-scheme:dark}
 body{background:var(--rm-bg)}
 .rm [hidden],.rm[hidden]{display:none!important}
-.vt{position:fixed;z-index:40;right:max(16px,env(safe-area-inset-right,0px));bottom:max(16px,env(safe-area-inset-bottom,0px));display:flex;gap:4px;padding:4px;border-radius:999px;background:rgba(21,23,26,.92);border:1px solid #2a2e34;box-shadow:0 8px 24px rgba(0,0,0,.5);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);font-family:'IBM Plex Sans KR',-apple-system,sans-serif}
-.vt button{height:44px;min-width:92px;padding:0 16px;border-radius:999px;border:0;background:transparent;color:#aab1b9;font-size:14px;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer}
-.vt button.on{background:#e8eaed;color:#0c0d0f;font-weight:600}
-.vt button:focus-visible{outline:2px solid #5ec8ff;outline-offset:2px}
-.vt i{width:6px;height:6px;border-radius:50%;background:#4ade80;display:none}
-.vt button.ping i{display:block}
 
 
 
@@ -206,24 +200,30 @@ body{background:var(--rm-bg)}
 .rm-faders{flex:0 1 412px;max-width:100%;display:flex;flex-direction:column;gap:10px;background:var(--rm-deep);border:1px solid var(--rm-line2);border-radius:12px;padding:10px 8px 10px;min-height:340px;min-width:0}
 .rm-fhead{display:flex;align-items:center;gap:6px;padding:0 4px}
 .rm-ftabs{display:flex;gap:4px}
-.rm-ftabs button,.rm-fine{height:32px;min-width:32px;padding:0 10px;border-radius:8px;border:1px solid #2a2e34;background:transparent;color:#aab1b9;font-size:12px;font-family:var(--rm-mono)}
+.rm-ftabs button,.rm-fine,.rm-kb{height:32px;min-width:32px;padding:0 10px;border-radius:8px;border:1px solid #2a2e34;background:transparent;color:#aab1b9;font-size:12px;font-family:var(--rm-mono)}
 .rm-ftabs button.on{background:#e8eaed;color:#0c0d0f;border-color:#e8eaed;font-weight:600}
-.rm-fine{margin-left:auto;font-family:var(--rm-sans)}
+.rm-kb{margin-left:auto;font-family:var(--rm-sans);display:flex;align-items:center;gap:6px}
+.rm-kb i{display:block;width:16px;height:7px;border-radius:2px;background:#e8eaed;box-shadow:inset 0 0 0 2px #e8eaed,inset 0 -2.5px 0 0 #5ec8ff}
+body.knob-dot .rm-kb i{width:12px;height:12px;border-radius:50%;background:#5ec8ff;box-shadow:0 0 0 2px #fff;margin:0 2px}
+.rm-fine{font-family:var(--rm-sans)}
 .rm-fine.on{border-color:var(--rm-acc);color:var(--rm-acc);background:rgba(94,200,255,.08)}
 .rm-frow{flex:1;display:flex;gap:2px;min-height:0;overflow-x:auto}
 .rm-ftip{font-size:11px;color:var(--rm-faint);text-align:center}
-.rm-ft.act .th{background:#5ec8ff}
+.rm-ft.act .th{box-shadow:0 0 0 4px rgba(94,200,255,.28),0 1px 3px rgba(0,0,0,.5)}
 .rm-flash .rm-fv{animation:rmfl .6s ease}
 @keyframes rmfl{0%{color:#5ec8ff}100%{color:inherit}}
 .rm-faders:empty{display:none}
 .rm-f{width:64px;flex:none;display:flex;flex-direction:column;align-items:center;gap:10px}
 .rm-fv{font-family:var(--rm-mono);font-size:11px;white-space:nowrap;height:16px}
-.rm-ft{position:relative;width:36px;flex:1;min-height:200px;touch-action:none;cursor:ns-resize}
-.rm-ft .tk{position:absolute;left:4px;top:0;bottom:0;width:5px;background:repeating-linear-gradient(to bottom,#2c3036 0,#2c3036 1px,transparent 1px,transparent 12.5%)}
-.rm-ft .gv{position:absolute;left:16px;top:0;bottom:0;width:4px;border-radius:2px;background:#1d2024}
-.rm-ft .fl{position:absolute;left:16px;bottom:0;width:4px;border-radius:2px}
-.rm-ft .th{position:absolute;left:4px;width:28px;height:12px;margin-top:-6px;border-radius:3px;background:var(--rm-fg);box-shadow:0 1px 3px rgba(0,0,0,.5)}
-.rm-ft .th::after{content:"";position:absolute;left:3px;right:3px;top:5px;height:2px;border-radius:1px;background:var(--rm-bg)}
+.rm-ft{position:relative;width:40px;flex:1;min-height:200px;touch-action:none;cursor:ns-resize;--thc:#5ec8ff}
+.rm-ft .tk{position:absolute;left:0;top:0;bottom:0;width:6px;background:repeating-linear-gradient(to bottom,#2c3036 0,#2c3036 1px,transparent 1px,transparent 12.5%)}
+.rm-ft .gv{position:absolute;left:16px;top:0;bottom:0;width:8px;border-radius:4px;background:#1d2024}
+.rm-ft .fl{position:absolute;left:16px;bottom:0;width:8px;border-radius:4px}
+.rm-ft .th{position:absolute;left:3px;width:34px;height:16px;margin-top:-8px;border-radius:4px;background:var(--rm-fg);box-shadow:0 1px 3px rgba(0,0,0,.5);transition:transform .12s,box-shadow .12s}
+.rm-ft .th::after{content:"";position:absolute;left:4px;right:4px;top:6px;height:4px;border-radius:2px;background:var(--thc)}
+body.knob-dot .rm-ft .th{left:6px;width:28px;height:28px;margin-top:-14px;border-radius:50%;box-sizing:border-box;background:var(--thc);border:3px solid #fff}
+body.knob-dot .rm-ft .th::after{display:none}
+body.knob-dot .rm-ft.act .th{transform:scale(1.12)}
 .rm-fl{font-size:11px;color:#c9ced4;text-align:center;line-height:1.25;min-height:28px;display:flex;align-items:flex-start;gap:4px}
 .rm-fl em{font-style:normal;font-family:var(--rm-mono);font-size:9px;padding:0 3px;border-radius:3px}
 .rm-lst{width:64px;flex:none;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:10px}
@@ -257,7 +257,11 @@ body{background:var(--rm-bg)}
 @media (max-width:720px){.rm-plist{width:170px}.rm-tnote b{font-size:90px}}
 body.v-iface .app{display:none!important}
 body.v-test .rm{display:none!important}
-body.v-iface{padding-bottom:84px}
+.rm-pill{font-family:inherit;cursor:pointer}
+.rm-pill:active{transform:scale(.97)}
+.rm-view{color:#aab1b9;font-size:12px}
+.rm-toast{position:fixed;left:50%;top:max(104px,calc(env(safe-area-inset-top,0px) + 96px));transform:translate(-50%,-12px);z-index:70;max-width:calc(100% - 32px);padding:12px 18px;border-radius:12px;background:#e8eaed;color:#0c0d0f;font:500 13px/1.5 var(--rm-sans);box-shadow:0 8px 30px rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s}
+.rm-toast.on{opacity:1;transform:translate(-50%,0)}
 #rmTStr{display:none}
 .rm-dlg{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px;font-family:var(--rm-sans);color:var(--rm-fg)}
 .rm-dlgbox{width:min(460px,100%);max-height:90vh;overflow:auto;background:var(--rm-panel);border:1px solid var(--rm-line);border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:12px}
@@ -269,17 +273,36 @@ body.v-iface{padding-bottom:84px}
 .rm-ccrow input{width:90px;height:40px;border-radius:10px;border:1px solid var(--rm-line);background:var(--rm-raise);color:var(--rm-fg);font-family:var(--rm-mono);font-size:14px;padding:0 10px}
 .rm-dlgbtn{display:flex;justify-content:flex-end;gap:8px}
 .rm-dlgbtn .rm-btn{height:44px}
+.rm-dlgbtn .rm-sm{height:44px}
+.rm-namef{display:flex;gap:8px}
+.rm-namef input{flex:1;min-width:0;height:48px;border-radius:12px;border:1px solid var(--rm-line);background:var(--rm-raise);color:var(--rm-fg);font:16px var(--rm-sans);padding:0 14px}
+.rm-namef .rm-btn{height:48px}
+.rm-pcats{display:flex;gap:6px;flex-wrap:wrap}
+.rm-pcats button{height:40px;padding:0 12px;border-radius:10px;border:1px solid #2a2e34;background:transparent;color:#aab1b9;font-size:13px;display:flex;align-items:center;gap:8px}
+.rm-pcats button i{width:8px;height:8px;border-radius:2px;background:var(--c)}
+.rm-pcats button.on{border-color:var(--c);color:#fff;background:#1c1f23}
+.rm-pmods{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px;margin-top:10px}
+.rm-pmods button{min-height:48px;padding:6px 12px;border-radius:10px;border:1px solid var(--rm-line);background:var(--rm-raise);color:var(--rm-fg);font-size:13px;text-align:left}
+.rm-pmods button.on{border-color:var(--rm-acc);color:var(--rm-acc)}
+.rm-elist{display:flex;flex-direction:column;gap:12px}
+.rm-erow{display:flex;align-items:center;gap:12px;font-size:13px;color:#c9ced4;flex-wrap:wrap}
+.rm-erow>span{width:64px;flex:none;color:var(--rm-dim)}
+.rm-seg{display:flex;gap:4px;padding:3px;border-radius:11px;background:var(--rm-raise);border:1px solid var(--rm-line)}
+.rm-seg button{height:38px;min-width:60px;padding:0 12px;border-radius:8px;border:0;background:transparent;color:var(--rm-mute);font-size:13px}
+.rm-seg button.on{background:var(--rm-fg);color:var(--rm-bg);font-weight:600}
+.rm-del{color:#ef8a8a;border-color:#4a2a2a}
+.rm-del.arm{background:#5a2020;color:#fff;border-color:#ef6a6a}
+.rm-sm.add{border-color:var(--rm-acc);color:var(--rm-acc)}
 
 </style>
 </head>
 <body>
-<nav class="vt" aria-label="화면 전환"><button type="button" id="vtIface" aria-pressed="true">인터페이스<i></i></button><button type="button" id="vtTest" aria-pressed="false">테스트<i></i></button></nav>
 <section class="rm" id="rm" aria-label="스톰프 리모트">
   <header class="rm-top">
     <div class="rm-preset" aria-label="프리셋">
       <div class="rm-plist">
         <button class="rm-prow" type="button" id="rmPrev"><span class="rm-mono" id="rmPrevId"></span><span id="rmPrevName"></span></button>
-        <button class="rm-prow cur" type="button" id="rmCur" aria-label="지금 프리셋"><span class="rm-mono" id="rmCurId"></span><span id="rmCurName"></span></button>
+        <button class="rm-prow cur" type="button" id="rmCur" aria-label="지금 프리셋 · 눌러서 이름 바꾸기"><span class="rm-mono" id="rmCurId"></span><span id="rmCurName"></span></button>
         <button class="rm-prow" type="button" id="rmNext"><span class="rm-mono" id="rmNextId"></span><span id="rmNextName"></span></button>
       </div>
       <div class="rm-parr">
@@ -287,14 +310,15 @@ body.v-iface{padding-bottom:84px}
         <button type="button" id="rmDown" aria-label="다음 프리셋"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 4 L6 8 L10 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       </div>
     </div>
-    <div class="rm-pill"><span class="rm-led" id="rmLed"></span><span id="rmLink">V-STOMP 연결됨</span></div>
+    <button type="button" class="rm-pill" id="rmPill"><span class="rm-led" id="rmLed"></span><span id="rmLink">연결 확인 중</span></button>
     <div class="rm-sp"></div>
     <div class="rm-snaps" role="group" aria-label="스냅샷" id="rmSnaps"></div>
     <button class="rm-btn rm-tap" type="button" id="rmTap"><small>TAP</small><span id="rmBpm">—</span></button>
     <button class="rm-btn" type="button" id="rmTunerBtn" aria-label="튜너"><svg width="20" height="20" viewBox="0 0 22 22" aria-hidden="true"><path d="M3 15 A8 8 0 0 1 19 15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M11 15 L14.5 8" stroke="#5ec8ff" stroke-width="1.8" stroke-linecap="round"/><circle cx="11" cy="15" r="1.6" fill="currentColor"/></svg>튜너</button>
     
     
-    <button class="rm-btn rm-save" type="button" id="rmSave">저장</button>
+    <button class="rm-btn rm-save" type="button" id="rmSave">아이패드에 저장</button>
+    <button class="rm-btn rm-view" type="button" id="vtTest" aria-label="테스트 화면으로">테스트 화면</button>
   </header>
 
   <div id="rmMain" style="display:flex;flex-direction:column;gap:12px">
@@ -350,6 +374,7 @@ body.v-iface{padding-bottom:84px}
     </div>
     <button class="btn tap" type="button" id="tapBtn"><small>TAP</small><span id="bpm">—</span></button>
     <button class="btn" type="button" id="tunerBtn">튜너</button>
+    <button class="btn" type="button" id="vtIface" style="border-color:#5ec8ff;color:#5ec8ff">인터페이스 화면</button>
   </header>
 
   <div class="main">
@@ -852,7 +877,8 @@ body.v-iface{padding-bottom:84px}
     sendCC: (cc, v, quiet) => sendCC(cc, v, quiet),
     sendPC: (n) => sendPC(n),
     status: () => ({ ok: !!S.out, name: S.out && S.out.name, isHX: !!(S.out && /hx|stomp|line ?6/i.test(S.out.name || '')) }),
-    on: (f) => linkL.push(f), onStatus: (f) => statL.push(f)
+    on: (f) => linkL.push(f), onStatus: (f) => statL.push(f),
+    connect: () => $('rescanBtn').click()
   };
 
   /* ---------- 시작 ---------- */
@@ -982,7 +1008,18 @@ let taps=[], tunF=0, noAudio=false;
 const hasB=()=>PR.blocks.some(b=>b.row==='B');
 function persist(){ try{ localStorage.setItem(KEY,JSON.stringify(STORE)); }catch(e){} }
 let q=false; function notify(){ if(q) return; q=true; requestAnimationFrame(()=>{ q=false; window.dispatchEvent(new CustomEvent('vstomp:change')); }); }
-function load(i,send){ STORE.cur=((i%N)+N)%N; PR=fix(clone(STORE.presets[STORE.cur])); dirty=false; ui.sel='in'; ui.view='play'; persist(); if(send) SR.sendPC(STORE.cur); notify(); }
+let told=false; function say(t){ window.dispatchEvent(new CustomEvent('vstomp:toast',{detail:t})); }
+function load(i,send){ STORE.cur=((i%N)+N)%N; PR=fix(clone(STORE.presets[STORE.cur])); dirty=false; ui.sel='in'; ui.view='play'; persist(); if(send) SR.sendPC(STORE.cur); notify();
+  if(!told){ told=true; say('페이더 값은 리모트 기준이에요 · 본체 노브와 다를 수 있어요'); } }
+/* ---- 구성 편집: 스톰프는 블록 배치를 알려주지 않아서, 본체와 똑같이 맞춰 두는 용도 ---- */
+const MAXB=8;
+const at=(r,c)=>PR.blocks.find(b=>b.row===r&&b.col===c);
+function addBlock(r,c,model){ if(!MODELS[model]) return false; if(at(r,c)) return false;
+  if(PR.blocks.length>=MAXB){ say('블록은 최대 8개까지예요 (HX Stomp 한도)'); return false; }
+  const b={sid:newSid(),row:r,col:c,model,on:true,fs:0,p:defaults(model),ctl:{}}; PR.blocks.push(b);
+  if(r==='B'&&!(c>=PR.s&&c<PR.m)){ PR.s=Math.min(PR.s,c); PR.m=Math.max(PR.m,c+1); }
+  ui.sel=r+c; dirty=true; notify(); return true; }
+function dropRefs(sid){ delete PR.cc[sid]; PR.snaps.forEach(S=>{ delete S.on[sid]; delete S.v[sid]; }); }
 function applySnap(i){ const S=PR.snaps[i]; PR.blocks.forEach(b=>{ if(b.sid in S.on) b.on=S.on[b.sid]; const v=S.v[b.sid]; if(v) Object.assign(b.p,v); }); }
 function fsInfo(i){
   if(i===2) return {label:'TAP/TUNER',sub:'♩ '+Math.round(PR.tempo),color:'#ef5350',on:true,always:true};
@@ -1016,7 +1053,7 @@ function audioOff(){ clearInterval(T.iv); if(T.stream) T.stream.getTracks().forE
 window.VSTOMP={
   defs:{CATS,MODELS,SPECIAL,NOTES}, fmt:fmtV, norm, catOf:CATOF, pid, real:true,
   state(){ const s=SR.status(); return {PR,STORE,ui,dirty,hasB:hasB(),tunF,noAudio,fsModes:['STOMP','PRESET','SCROLL','SNAPSHOT'],fs:[0,1,2].map(fsInfo),
-    linkText:!s.ok?'연결 안 됨 · 테스트 화면에서 연결':s.isHX?(s.name||'HX Stomp')+' · 연결됨':(s.name||'MIDI')+' · 스톰프 아님',linkState:!s.ok?'off':s.isHX?'ok':'warn'}; },
+    linkText:!s.ok?'연결 안 됨 · 눌러서 연결':s.isHX?(s.name||'HX Stomp')+' · 연결됨':(s.name||'MIDI')+' · 스톰프 아님',linkState:!s.ok?'off':s.isHX?'ok':'warn'}; },
   wake(){}, strum(){}, pick(){}, arp(){}, loop(){}, looping(){ return false; }, pluck(){}, peg(){}, detune(){},
   preset(i){ load(i,true); },
   snap(i){ PR.snap=i; applySnap(i); SR.sendCC(69,i); notify(); },
@@ -1032,6 +1069,18 @@ window.VSTOMP={
   save(){ STORE.presets[STORE.cur]=clone(PR); persist(); dirty=false; notify(); },
   ccOf(target,k){ return (PR.cc[target]||{})[k]; },
   openCC(t){ openCCEditor(t); },
+  connect(){ if(SR.connect) SR.connect(); },
+  openName(){ openNameEditor(); },
+  openPicker(r,c,sid){ openModelPicker(r,c,sid); },
+  openBlock(sid){ openBlockEditor(sid); },
+  removeBlock(sid){ const b=PR.blocks.find(x=>x.sid===sid); if(!b) return; PR.blocks=PR.blocks.filter(x=>x!==b); dropRefs(sid); ui.sel=b.row+b.col; dirty=true; notify(); },
+  setModel(sid,model){ const b=PR.blocks.find(x=>x.sid===sid); if(!b||!MODELS[model]||b.model===model) return; b.model=model; b.p=defaults(model); b.ctl={}; dropRefs(sid); dirty=true; notify(); },
+  setFS(sid,fs){ const b=PR.blocks.find(x=>x.sid===sid); if(!b) return; b.fs=fs; dirty=true; notify(); },
+  movePath(sid,r){ const b=PR.blocks.find(x=>x.sid===sid); if(!b||b.row===r) return true; if(at(r,b.col)){ say('Path '+r+'의 같은 칸에 이미 블록이 있어요'); return false; }
+    if(r==='B'){ if(!hasB()){ PR.s=b.col; PR.m=b.col+1; } else { PR.s=Math.min(PR.s,b.col); PR.m=Math.max(PR.m,b.col+1); } }
+    b.row=r; ui.sel=r+b.col; dirty=true; notify(); return true; },
+  rename(n){ n=String(n||'').trim().slice(0,16); if(!n) return; PR.name=n; dirty=true; notify(); },
+  addBlock,
   count:N
 };
 
@@ -1040,7 +1089,7 @@ function openCCEditor(t){
   if(!t||!t.id||!t.defs||!t.defs.length) return;
   const box=document.createElement('div'); box.className='rm-dlg';
   const cur=PR.cc[t.id]||{};
-  box.innerHTML='<form class="rm-dlgbox"><h3></h3><p>스톰프 본체에서 이 파라미터를 <b>MIDI CC</b>에 할당해 둔 번호를 적어요. 비워 두면 리모트에서만 움직여요. 1~31, 33~48처럼 다른 기능에 쓰지 않는 번호를 권장해요 (49~71은 스톰프 기본 기능에 쓰여요).</p><div class="rm-cclist"></div><div class="rm-dlgbtn"><button type="button" class="rm-sm" data-x>취소</button><button type="submit" class="rm-btn rm-save dirty">저장</button></div></form>';
+  box.innerHTML='<form class="rm-dlgbox"><h3></h3><p>스톰프 본체에서 이 파라미터 노브를 <b>길게 눌러</b> Controller를 <b>MIDI CC</b>로 바꾸고, 여기 적은 번호와 같게 맞춰요. 비워 두면 리모트 화면에서만 움직여요.</p><p style="color:#9adcff">처음이면 <b>추천 번호 채우기</b>를 누른 뒤, 그 번호를 그대로 본체에 넣으면 돼요. (0~3·32·49~71은 스톰프 기본 기능용이라 피해요)</p><div class="rm-cclist"></div><div class="rm-dlgbtn"><button type="button" class="rm-sm" data-fill style="margin-right:auto;border-color:#5ec8ff;color:#5ec8ff">추천 번호 채우기</button><button type="button" class="rm-sm" data-x>취소</button><button type="submit" class="rm-btn rm-save dirty">적용</button></div></form>';
   box.querySelector('h3').textContent=t.name+' · MIDI 할당';
   const list=box.querySelector('.rm-cclist');
   t.defs.forEach((pd,i)=>{ const row=document.createElement('label'); row.className='rm-ccrow'; row.innerHTML='<span></span><input type="number" min="0" max="127" inputmode="numeric" placeholder="없음">';
@@ -1048,10 +1097,54 @@ function openCCEditor(t){
   document.body.append(box);
   const close=()=>box.remove();
   box.querySelector('[data-x]').onclick=close;
+  box.querySelector('[data-fill]').onclick=()=>{ const ins=[...list.querySelectorAll('input')], used=new Set();
+    Object.keys(PR.cc).forEach(id=>{ if(id===t.id) return; Object.values(PR.cc[id]||{}).forEach(v=>used.add(+v)); });
+    ins.forEach(i=>{ const v=parseInt(i.value,10); if(!isNaN(v)) used.add(v); });
+    const pool=[]; for(let n=20;n<=31;n++) pool.push(n); for(let n=33;n<=48;n++) pool.push(n); for(let n=72;n<=119;n++) pool.push(n);
+    ins.forEach(i=>{ if(i.value!=='') return; const n=pool.find(x=>!used.has(x)); if(n==null) return; i.value=n; used.add(n); i.style.borderColor='#5ec8ff'; }); };
   box.addEventListener('click',e=>{ if(e.target===box) close(); });
   box.querySelector('form').onsubmit=e=>{ e.preventDefault(); const m={};
     list.querySelectorAll('input').forEach(inp=>{ const v=parseInt(inp.value,10); if(!isNaN(v)&&v>=0&&v<=127) m[inp.dataset.k]=v; });
     PR.cc[t.id]=m; dirty=true; close(); notify(); };
+}
+function dlg(title,note){ const box=document.createElement('div'); box.className='rm-dlg';
+  box.innerHTML='<div class="rm-dlgbox" role="dialog" aria-modal="true"><h3></h3>'+(note?'<p></p>':'')+'<div class="rm-dlgbody"></div><div class="rm-dlgbtn"><button type="button" class="rm-sm" data-x>닫기</button></div></div>';
+  box.querySelector('h3').textContent=title; if(note) box.querySelector('p').textContent=note;
+  const close=()=>box.remove(); box.querySelector('[data-x]').onclick=close; box.addEventListener('click',e=>{ if(e.target===box) close(); });
+  document.body.append(box); return {box,body:box.querySelector('.rm-dlgbody'),close}; }
+function openNameEditor(){
+  const d=dlg(pid(STORE.cur)+' 프리셋 이름','이 아이패드에서만 쓰는 이름이에요. 본체 이름과 같게 적어 두면 찾기 쉬워요.');
+  d.body.innerHTML='<form class="rm-namef"><input maxlength="16" autocomplete="off"><button type="submit" class="rm-btn rm-save dirty">바꾸기</button></form>';
+  const inp=d.body.querySelector('input'); inp.value=PR.name==='(구성 없음)'?'':PR.name; inp.placeholder='예: 주일 1부';
+  d.body.querySelector('form').onsubmit=e=>{ e.preventDefault(); window.VSTOMP.rename(inp.value); d.close(); };
+  setTimeout(()=>inp.focus(),50); }
+function openModelPicker(r,c,sid){
+  const b=sid&&PR.blocks.find(x=>x.sid===sid);
+  const d=dlg(b?'모델 바꾸기':'블록 넣기 · Path '+r+' '+(c+1)+'번째 칸', b?'바꾸면 이 블록의 값과 MIDI 할당이 처음으로 돌아가요.':'스톰프 본체에 있는 블록과 같은 걸 골라 두세요. 여기서 넣어도 본체 블록은 안 바뀌어요.');
+  let cat=b?MODELS[b.model].cat:CATS[0].id;
+  const paint=()=>{ const tabs=CATS.map(C=>`<button type="button" data-cat="${C.id}" class="${C.id===cat?'on':''}" style="--c:${C.color}"><i></i>${C.name}</button>`).join('');
+    const ms=Object.keys(MODELS).filter(k=>MODELS[k].cat===cat).map(k=>`<button type="button" data-m="${k}" class="${b&&b.model===k?'on':''}">${MODELS[k].name}</button>`).join('');
+    d.body.innerHTML=`<div class="rm-pcats">${tabs}</div><div class="rm-pmods">${ms}</div>`; };
+  paint();
+  d.body.onclick=e=>{ const ct=e.target.closest('[data-cat]'); if(ct){ cat=ct.dataset.cat; paint(); return; }
+    const m=e.target.closest('[data-m]'); if(!m) return;
+    if(b) window.VSTOMP.setModel(b.sid,m.dataset.m); else addBlock(r,c,m.dataset.m); d.close(); };
+}
+function openBlockEditor(sid){
+  const b=PR.blocks.find(x=>x.sid===sid); if(!b) return;
+  const d=dlg(MODELS[b.model].name+' · 블록 구성','본체와 같게 맞춰 두는 용도예요. 여기서 바꿔도 스톰프 블록 배치는 안 바뀌어요.');
+  const paint=()=>{ const B=PR.blocks.find(x=>x.sid===sid); if(!B){ d.close(); return; }
+    const seg=(name,opts,cur)=>`<div class="rm-erow"><span>${name}</span><div class="rm-seg">${opts.map(([v,l])=>`<button type="button" data-${name==='풋스위치'?'fs':'row'}="${v}" class="${String(cur)===String(v)?'on':''}">${l}</button>`).join('')}</div></div>`;
+    d.body.innerHTML=`<div class="rm-elist"><div class="rm-erow"><span>모델</span><button type="button" class="rm-sm" data-model>${MODELS[B.model].name} · 바꾸기</button></div>`+
+      seg('풋스위치',[[0,'없음'],[1,'FS1'],[2,'FS2']],B.fs)+seg('경로',[['A','Path A'],['B','Path B']],B.row)+
+      `<div class="rm-erow"><span>지우기</span><button type="button" class="rm-sm rm-del" data-del>${'이 블록 지우기'}</button></div></div>`; };
+  paint();
+  let armed=false;
+  d.body.onclick=e=>{ const V=window.VSTOMP;
+    if(e.target.closest('[data-model]')){ d.close(); openModelPicker(b.row,b.col,sid); return; }
+    const f=e.target.closest('[data-fs]'); if(f){ V.setFS(sid,+f.dataset.fs); paint(); return; }
+    const r=e.target.closest('[data-row]'); if(r){ V.movePath(sid,r.dataset.row); paint(); return; }
+    const x=e.target.closest('[data-del]'); if(x){ if(!armed){ armed=true; x.textContent='한 번 더 누르면 지워요'; x.classList.add('arm'); return; } V.removeBlock(sid); d.close(); } };
 }
 })();
 </script>
@@ -1067,6 +1160,7 @@ const CATAB={dyn:'DYN',eq:'EQ',mod:'MOD',dly:'DLY',rev:'REV',vol:'VOL'};
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let openRow='A', faderKey='', fdrs=[], eqDrag=null, lastPts=null;
 const S=()=>V().state();
+try{ if(localStorage.getItem('stompRemote.knob')==='dot') document.body.classList.add('knob-dot'); }catch(e){}
 
 /* ---------- 값 변환 ---------- */
 function denorm(pd,t){
@@ -1102,7 +1196,7 @@ function renderTop(){
   $r('rmBpm').textContent=Math.round(s.PR.tempo);
   $r('rmLink').textContent=s.linkText||('연결됨 · '+s.fsModes[s.ui.fsMode]); const ld=$r('rmLed'); if(ld){ ld.style.background=s.linkState==='ok'?'#4ade80':s.linkState==='warn'?'#e9c45a':'#5f666e'; ld.style.boxShadow=s.linkState==='ok'?'0 0 0 3px rgba(74,222,128,.15)':'none'; }
   $r('rmTunerBtn').classList.toggle('on',!!s.ui.tuner);
-  const sv=$r('rmSave'); sv.classList.toggle('dirty',!!s.dirty); sv.textContent=s.dirty?'저장':'저장됨'; sv.setAttribute('aria-label',s.dirty?'바뀐 내용 저장':'저장된 상태');
+  const sv=$r('rmSave'); sv.classList.toggle('dirty',!!s.dirty); sv.textContent=s.dirty?'아이패드에 저장':'저장됨'; sv.setAttribute('aria-label',s.dirty?'바뀐 내용을 이 아이패드에 저장':'저장된 상태');
 }
 $r('rmUp').onclick=()=>V().preset(S().STORE.cur-1);
 $r('rmDown').onclick=()=>V().preset(S().STORE.cur+1);
@@ -1112,7 +1206,12 @@ $r('rmSnaps').onclick=e=>{ const b=e.target.closest('[data-snap]'); if(b) V().sn
 $r('rmTap').onclick=()=>V().tap();
 $r('rmTunerBtn').onclick=()=>V().tuner(!S().ui.tuner);
 $r('rmTClose').onclick=()=>V().tuner(false);
-$r('rmSave').onclick=()=>V().save();
+$r('rmSave').onclick=()=>{ const d=S().dirty; V().save(); if(d) toast('이 아이패드에 저장했어요 · 스톰프 본체 저장은 본체에서 따로 해요'); };
+$r('rmPill').onclick=()=>{ const s=S(); if(s.linkState==='ok'){ toast(s.linkText); return; } V().connect(); toast(s.linkState==='warn'?'스톰프를 다시 찾는 중이에요 · USB 연결을 확인해 주세요':'MIDI 연결 중이에요…'); };
+$r('rmCur').onclick=()=>V().openName();
+let toastT=0; function toast(msg){ let el=document.querySelector('.rm-toast'); if(!el){ el=document.createElement('div'); el.className='rm-toast'; el.setAttribute('role','status'); document.body.append(el); }
+  el.textContent=msg; requestAnimationFrame(()=>el.classList.add('on')); clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove('on'),3200); }
+window.addEventListener('vstomp:toast',e=>toast(e.detail));
 
 /* ---------- 되돌리기 ---------- */
 let undoStack=[];
@@ -1163,12 +1262,16 @@ function renderHead(t){
   const cur=S().STORE.cur, canUndo=undoStack.some(u=>u.preset===cur);
   h+=`<button type="button" class="rm-sm" id="rmUndo" ${canUndo?'':'disabled'}>되돌리기</button>`;
   if(V().openCC&&t.defs&&t.defs.length) h+=`<button type="button" class="rm-sm" id="rmCC">MIDI 할당</button>`;
+  if(t.kind==='block') h+=`<button type="button" class="rm-sm" id="rmEdit">블록 구성</button>`;
+  if(t.kind==='empty') h+=`<button type="button" class="rm-sm add" id="rmAdd">+ 블록 넣기</button>`;
   if(t.kind==='block') h+=`<button type="button" class="rm-switch ${t.b.on?'on':''}" id="rmOn" aria-pressed="${t.b.on}"><span></span>${t.b.on?'켜짐':'꺼짐'}</button>`;
   const snapK=t.kind==='block'?Object.keys(t.b.ctl||{}).filter(k=>t.b.ctl[k].t==='snap'):[];
   if(snapK.length){ const s=S(); h+=`<p class="rm-snapnote">SNAP 표시가 붙은 값은 스냅샷마다 따로 기억돼요 · 지금 ${esc(s.PR.snaps[s.PR.snap].n)}</p>`; }
   $r('rmHead').innerHTML=h;
   $r('rmUndo').onclick=undo;
   const ccb=$r('rmCC'); if(ccb) ccb.onclick=()=>V().openCC(t);
+  const eb=$r('rmEdit'); if(eb) eb.onclick=()=>V().openBlock(t.b.sid);
+  const ab=$r('rmAdd'); if(ab) ab.onclick=()=>{ const k=S().ui.sel; V().openPicker(k[0],+k.slice(1)); };
   const sw=$r('rmOn'); if(sw) sw.onclick=()=>{ pushUndo(t); V().toggle(t.b.sid); };
 }
 
@@ -1187,7 +1290,11 @@ function renderFaders(t){
     const fine=document.createElement('button'); fine.type='button'; fine.className='rm-fine'; fine.textContent='미세 조절';
     fine.onclick=()=>{ fFine=!fFine; fine.classList.toggle('on',fFine); fine.setAttribute('aria-pressed',fFine); };
     fine.classList.toggle('on',fFine); fine.setAttribute('aria-pressed',fFine);
-    head.append(tabs,fine);
+    const kb=document.createElement('button'); kb.type='button'; kb.className='rm-kb';
+    const kbTxt=()=>{ const dot=document.body.classList.contains('knob-dot'); kb.innerHTML='<i></i>'+(dot?'원':'막대'); kb.setAttribute('aria-label','손잡이 모양: '+(dot?'원':'막대')+' · 눌러서 바꾸기'); };
+    kb.onclick=()=>{ const dot=!document.body.classList.contains('knob-dot'); document.body.classList.toggle('knob-dot',dot); try{ localStorage.setItem('stompRemote.knob',dot?'dot':'bar'); }catch(e){} kbTxt(); };
+    kbTxt();
+    head.append(tabs,kb,fine);
     const row=document.createElement('div'); row.className='rm-frow';
     const tip=document.createElement('div'); tip.className='rm-ftip'; tip.textContent='위아래로 끌기 · 두 번 탭하면 기본값';
     box.append(head,row,tip);
@@ -1230,7 +1337,7 @@ function renderFaders(t){
         if(e.key==='ArrowDown'){ pushUndo(tt); setT(cur-st); e.preventDefault(); }
         if(e.key==='Delete'||e.key==='Backspace'){ reset(); e.preventDefault(); } });
       fdrs.push({pd,el:w,upd:(o,b)=>{ const p=tOf(pd,o); fl.style.height=(p*100)+'%'; th.style.top=((1-p)*100)+'%';
-        fl.style.background=(target().color)||'#5ec8ff';
+        const fc=(target().color)||'#5ec8ff'; fl.style.background=fc; tr.style.setProperty('--thc',fc);
         val.textContent=V().fmt(pd,o[pd.k],o); tr.setAttribute('aria-label',pd.l+' '+val.textContent);
         tr.setAttribute('aria-valuetext',val.textContent);
         const cn=V().ccOf?V().ccOf(target().id,pd.k):null;
@@ -1446,7 +1553,7 @@ function draw(){
   if(t.kind==='out') return drawMsg(['출력 블록','Level과 Pan을 오른쪽 페이더로 조절해요']);
   if(t.kind==='in') return drawMsg(['기타가 들어오는 곳이에요','입력 임피던스는 스톰프 메뉴(◀PAGE+PAGE▶)에서 바꿔요']);
   if(t.kind==='split') return drawMsg(['Split Y','같은 소리를 A·B 두 줄로 똑같이 나눠요']);
-  return drawMsg(['빈 자리예요','블록 추가는 스톰프 본체에서 해요 (Lower 노브 누르기)']);
+  return drawMsg(['빈 자리예요','본체에 이 자리 블록이 있다면 위 「+ 블록 넣기」로 똑같이 넣어 두세요']);
 }
 
 /* ---------- 풋스위치 ---------- */
@@ -1514,12 +1621,13 @@ renderAll();
 </script>
 <script>
 (function(){
-  var KEY='stompRemote.view', a=document.getElementById('vtIface'), b=document.getElementById('vtTest'), cur='iface', t=null;
-  function show(v){ cur=v; document.body.classList.toggle('v-iface',v==='iface'); document.body.classList.toggle('v-test',v==='test');
-    a.classList.toggle('on',v==='iface'); b.classList.toggle('on',v==='test'); a.setAttribute('aria-pressed',v==='iface'); b.setAttribute('aria-pressed',v==='test');
-    a.classList.remove('ping'); b.classList.remove('ping'); try{ localStorage.setItem(KEY,v); }catch(e){} window.scrollTo(0,0);
+  var KEY='stompRemote.view';
+  function show(v){ document.body.classList.toggle('v-iface',v==='iface'); document.body.classList.toggle('v-test',v==='test');
+    try{ localStorage.setItem(KEY,v); }catch(e){} window.scrollTo(0,0);
     requestAnimationFrame(function(){ window.dispatchEvent(new Event('resize')); window.dispatchEvent(new CustomEvent('vstomp:change')); }); }
-  a.onclick=function(){ show('iface'); }; b.onclick=function(){ show('test'); };
+  document.getElementById('vtIface').onclick=function(){ show('iface'); };
+  document.getElementById('vtTest').onclick=function(){ show('test'); };
+  try{ if(localStorage.getItem('stompRemote.knob')==='dot') document.body.classList.add('knob-dot'); }catch(e){}
   var v='iface'; try{ v=localStorage.getItem(KEY)||'iface'; }catch(e){} show(v==='test'?'test':'iface');
 })();
 </script>
