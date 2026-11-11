@@ -426,9 +426,11 @@ select,input[type=text],input[type=number]{height:40px;border-radius:10px;border
     S.out = findPort(S.outList || [], $('outSel').value);
     S.inp = findPort(S.inList || [], $('inSel').value);
     if (S.inp) S.inp.onmidimessage = onMessage;
-    const ok = !!S.out;
-    $('connLed').classList.toggle('on', ok);
-    $('connText').textContent = ok ? (S.out.name || 'MIDI') + ' · 연결됨' : '연결 안 됨';
+    const ok = !!S.out, isHX = ok && /hx|stomp|line ?6/i.test(S.out.name || '');
+    $('connLed').classList.toggle('on', isHX);
+    $('connLed').style.background = ok && !isHX ? 'var(--warn)' : '';
+    $('connText').textContent = !ok ? '연결 안 됨' : isHX ? (S.out.name || 'HX Stomp') + ' · 연결됨' : (S.out.name || 'MIDI') + ' · 스톰프 아님';
+    if (ok && !isHX) $('connNote').textContent = '지금 잡힌 건 아이패드 기본 통로(' + (S.out.name || 'MIDI') + ')예요. 스톰프를 USB로 꽂고 "다시 찾기"를 눌러 주세요.';
   }
   $('outSel').onchange = pickPorts; $('inSel').onchange = pickPorts;
   $('rescanBtn').onclick = () => {
