@@ -104,6 +104,18 @@ select,input[type=text],input[type=number]{height:40px;border-radius:10px;border
 .graph{flex:1;min-height:240px;border-top:1px solid var(--line2);transition:background-color .3s ease;position:relative}
 .graph canvas{position:absolute;inset:0;width:100%;height:100%}
 .tmsg{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;color:var(--mute);font-size:14px;line-height:1.7;max-width:420px}
+@media (min-width:900px){
+  .app{height:100vh;height:100dvh;min-height:0;overflow:hidden}
+  .main{min-height:0;flex-wrap:nowrap}
+  .board{min-height:0}
+  .faders{min-height:0;padding:12px 16px}
+  .track{min-height:80px}
+  .side{min-height:0;overflow:auto}
+  .sec{padding:12px 16px;gap:8px}
+  .side .btn{height:44px}
+  .log{min-height:60px;max-height:none;flex:1}
+  .fs{flex:none}
+}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 @media (max-width:700px){.plist{width:170px}.faders{grid-template-columns:repeat(3,minmax(0,1fr))}.tnote b{font-size:96px}}
 </style>
@@ -148,9 +160,8 @@ select,input[type=text],input[type=number]{height:40px;border-radius:10px;border
         <div class="row">
           <button class="btn" type="button" id="connectBtn">MIDI 연결</button>
           <button class="btn" type="button" id="rescanBtn">다시 찾기</button>
-          <label for="chSel">채널</label>
-          <select id="chSel"></select>
         </div>
+        <div class="row"><label for="chSel">채널</label><select id="chSel" style="width:80px"></select></div>
         <div class="row"><label for="outSel">보내기</label><select id="outSel" style="flex:1"></select></div>
         <div class="row"><label for="inSel">받기</label><select id="inSel" style="flex:1"></select></div>
         <p class="note" id="connNote">아이패드에서는 'Web MIDI Browser' 앱으로 이 페이지를 열어야 MIDI가 연결돼요.</p>
