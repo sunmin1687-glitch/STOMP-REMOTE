@@ -147,6 +147,7 @@ select,input[type=text],input[type=number]{height:40px;border-radius:10px;border
         <h3>연결</h3>
         <div class="row">
           <button class="btn" type="button" id="connectBtn">MIDI 연결</button>
+          <button class="btn" type="button" id="rescanBtn">다시 찾기</button>
           <label for="chSel">채널</label>
           <select id="chSel"></select>
         </div>
@@ -389,16 +390,32 @@ select,input[type=text],input[type=number]{height:40px;border-radius:10px;border
     }
   }
 
+  /* 오래된 MIDI 앱(Web MIDI Browser)은 목록 모양이 표준과 달라서 여러 방법으로 읽어요 */
+  function portList(m) {
+    const out = [];
+    if (!m) return out;
+    const add = (p) => { if (p && typeof p === 'object' && (p.id != null || p.name) && !out.includes(p)) out.push(p); };
+    try { if (Array.isArray(m)) { m.forEach(add); return out; } } catch (_) {}
+    try { if (typeof m.forEach === 'function') m.forEach((a, b) => { add(a && (a.id != null || a.name) ? a : b); }); } catch (_) {}
+    if (!out.length) { try { if (typeof m.values === 'function') { const it = m.values(); let n; while (it && !(n = it.next()).done) add(n.value); } } catch (_) {} }
+    if (!out.length) { try { Object.keys(m).forEach(k => add(m[k])); } catch (_) {} }
+    if (!out.length) { try { for (let i = 0; i < (m.size || m.length || 0); i++) add(m[i]); } catch (_) {} }
+    return out;
+  }
+  const pid2 = (p, i) => String(p.id != null ? p.id : 'p' + i);
+  function findPort(list, id) { return list.find((p, i) => pid2(p, i) === id) || null; }
   function fillPorts() {
     const outSel = $('outSel'), inSel = $('inSel');
-    const outs = S.midi ? Array.from(S.midi.outputs.values()) : [];
-    const ins = S.midi ? Array.from(S.midi.inputs.values()) : [];
+    const outs = S.midi ? portList(S.midi.outputs) : [];
+    const ins = S.midi ? portList(S.midi.inputs) : [];
+    S.outList = outs; S.inList = ins;
     const fill = (sel, list) => {
       const keep = sel.value; sel.textContent = '';
       if (!list.length) { const o = document.createElement('option'); o.value = ''; o.textContent = '찾은 기기 없음'; sel.append(o); return; }
-      list.forEach(p => { const o = document.createElement('option'); o.value = p.id; o.textContent = p.name || p.id; sel.append(o); });
-      const hx = list.find(p => /hx|stomp|line ?6/i.test(p.name || ''));
-      sel.value = list.some(p => p.id === keep) ? keep : (hx ? hx.id : list[0].id);
+      list.forEach((p, i) => { const o = document.createElement('option'); o.value = pid2(p, i); o.textContent = p.name || ('기기 ' + (i + 1)); sel.append(o); });
+      const hi = list.findIndex(p => /hx|stomp|line ?6/i.test(p.name || ''));
+      const ki = list.findIndex((p, i) => pid2(p, i) === keep);
+      sel.value = pid2(list[ki >= 0 ? ki : (hi >= 0 ? hi : 0)], ki >= 0 ? ki : (hi >= 0 ? hi : 0));
     };
     fill(outSel, outs); fill(inSel, ins);
     pickPorts();
@@ -406,14 +423,20 @@ select,input[type=text],input[type=number]{height:40px;border-radius:10px;border
   function pickPorts() {
     if (!S.midi) return;
     if (S.inp) S.inp.onmidimessage = null;
-    S.out = S.midi.outputs.get($('outSel').value) || null;
-    S.inp = S.midi.inputs.get($('inSel').value) || null;
+    S.out = findPort(S.outList || [], $('outSel').value);
+    S.inp = findPort(S.inList || [], $('inSel').value);
     if (S.inp) S.inp.onmidimessage = onMessage;
     const ok = !!S.out;
     $('connLed').classList.toggle('on', ok);
     $('connText').textContent = ok ? (S.out.name || 'MIDI') + ' · 연결됨' : '연결 안 됨';
   }
   $('outSel').onchange = pickPorts; $('inSel').onchange = pickPorts;
+  $('rescanBtn').onclick = () => {
+    if (!S.midi) { $('connectBtn').click(); return; }
+    fillPorts();
+    log('out', '다시 찾음 · 보내기 ' + S.outList.length + '개, 받기 ' + S.inList.length + '개');
+    S.outList.forEach((p, i) => log('out', '  보내기 ' + (i + 1) + ': ' + (p.name || '(이름 없음)')));
+  };
 
   $('connectBtn').onclick = async () => {
     if (!navigator.requestMIDIAccess) {
@@ -425,7 +448,9 @@ select,input[type=text],input[type=number]{height:40px;border-radius:10px;border
       S.midi = await navigator.requestMIDIAccess({ sysex: false });
       S.midi.onstatechange = fillPorts;
       fillPorts();
-      log('out', 'MIDI 사용 허락됨 · 보내기 ' + S.midi.outputs.size + '개, 받기 ' + S.midi.inputs.size + '개');
+      log('out', 'MIDI 사용 허락됨 · 보내기 ' + S.outList.length + '개, 받기 ' + S.inList.length + '개');
+      S.outList.forEach((p, i) => log('out', '  보내기 ' + (i + 1) + ': ' + (p.name || '(이름 없음)')));
+      S.inList.forEach((p, i) => log('out', '  받기 ' + (i + 1) + ': ' + (p.name || '(이름 없음)')));
       $('connNote').textContent = S.out ? '연결됐어요. 스냅샷 버튼을 눌러 스톰프가 반응하는지 확인해 보세요.' : 'MIDI는 켜졌지만 스톰프를 찾지 못했어요. USB 연결과 스톰프 전원을 확인해 주세요.';
     } catch (e) {
       log('err', 'MIDI 연결 실패: ' + (e && e.message ? e.message : e));
