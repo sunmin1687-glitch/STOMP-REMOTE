@@ -45,7 +45,7 @@ body.v-test #iface{display:none}
 #test pre{margin:0;white-space:pre-wrap;word-break:break-all;font-size:12px;color:var(--soft);background:var(--bg);border-radius:10px;padding:10px}
 
 /* ---------- 인터페이스 공통 ---------- */
-#iface{max-width:480px;margin:0 auto;min-height:100vh;padding:max(16px,env(safe-area-inset-top)) 18px max(16px,env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:16px;user-select:none;-webkit-user-select:none}
+#iface{max-width:480px;margin:0 auto;min-height:100vh;min-height:100dvh;padding:max(16px,env(safe-area-inset-top)) 18px max(16px,env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:16px;user-select:none;-webkit-user-select:none}
 .top{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:44px}
 .badge{display:flex;align-items:center;gap:8px;font-family:var(--num);font-size:12px;letter-spacing:.12em;color:var(--mute)}
 .badge i{width:6px;height:6px;border-radius:50%;background:var(--acc)}
@@ -58,7 +58,7 @@ body.v-test #iface{display:none}
 .title{font-size:16px;font-weight:700}
 .hero{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
 .hero .id{font-family:var(--num);font-size:13px;color:var(--mute);letter-spacing:.08em}
-.hero .name{font-size:34px;font-weight:800;letter-spacing:-.03em;line-height:1.15;word-break:keep-all}
+.hero .name{font-size:30px;font-weight:800;letter-spacing:-.03em;line-height:1.15;word-break:keep-all}
 .seg{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:4px;background:var(--card);border-radius:16px;padding:4px}
 .seg button{height:44px;border-radius:12px;border:none;background:transparent;color:var(--mute);font-size:14px}
 .seg button.on{background:var(--acc);color:var(--on-acc);font-weight:700}
@@ -73,14 +73,17 @@ body.v-test #iface{display:none}
 
 /* 메인 체인 */
 .chain{position:relative;display:flex;flex-direction:column}
-.chain::before{content:"";position:absolute;left:11px;top:24px;bottom:24px;width:1px;background:var(--track)}
-.crow{display:flex;align-items:center;gap:12px;height:52px;position:relative}
+.chain::before{content:"";position:absolute;left:16px;top:24px;bottom:24px;width:1px;background:var(--track)}
+.crow{display:flex;align-items:center;gap:10px;height:54px;position:relative}
 .crow .open{flex:1;min-width:0;height:100%;display:flex;align-items:center;gap:14px;border:none;background:none;padding:0;text-align:left}
 .node{width:12px;height:12px;margin:0 5px;border-radius:50%;box-shadow:0 0 0 4px var(--bg);flex-shrink:0}
 .node.off{width:12px;height:12px;background:var(--bg)!important;border:2px solid}
 .crow .nm{font-size:15px;font-weight:500}
 .crow.off .nm{color:var(--mute)}
-.bar{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:auto}
+.dock{position:sticky;bottom:0;z-index:10;margin:auto -18px 0;padding:18px 18px max(10px,env(safe-area-inset-bottom));background:linear-gradient(rgba(12,13,15,0),var(--bg) 22px)}
+.bar{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.stick{position:sticky;top:0;z-index:10;margin:-16px -18px 0;padding:max(16px,env(safe-area-inset-top)) 18px 12px;background:var(--bg);display:flex;flex-direction:column;gap:12px}
+.bicon{display:block;flex-shrink:0;border-radius:9px;box-shadow:0 0 0 4px var(--bg)}
 .bar button{height:58px;border-radius:16px;border:none;background:var(--card);font-size:13px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
 .bar .bpm{font-family:var(--num);font-size:18px;font-weight:700}
 .bar small{font-size:11px;color:var(--mute)}
@@ -106,7 +109,7 @@ body.v-test #iface{display:none}
 .chips button{height:36px;padding:0 14px;border-radius:999px;border:none;background:var(--card);color:var(--soft);font-size:13px;display:flex;align-items:center;gap:6px}
 .chips button.on{background:var(--fg);color:var(--bg);font-weight:700}
 .models{display:flex;flex-direction:column;gap:6px}
-.models button{min-height:56px;border-radius:14px;border:1.5px solid transparent;background:var(--card);display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 16px;font-size:15px;text-align:left}
+.models button{min-height:56px;border-radius:14px;border:1.5px solid transparent;background:var(--card);display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 16px 0 12px;font-size:15px;text-align:left}
 .models button.on{border-color:var(--acc);font-weight:700}
 .cta{height:56px;border-radius:16px;border:none;background:var(--acc);color:var(--on-acc);font-size:15px;font-weight:700;width:100%}
 .cta:disabled{background:var(--track);color:var(--mute)}
@@ -333,6 +336,26 @@ S.off[0][S.chain[1].uid]=true; S.off[0][S.chain[4].uid]=true; S.off[1][S.chain[4
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let toastT;
 function toast(msg){ toastEl.textContent = msg; toastEl.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(()=>toastEl.classList.remove('on'), 2200); }
+/* 블록 아이콘: 계열 색 둥근 사각형 + 계열 그림 (꺼지면 테두리만) */
+const GLYPH = {
+  dyn:   '<path d="M12 3v6M9 6.5l3 3 3-3M12 21v-6M9 17.5l3-3 3 3M5 12h14"/>',
+  drive: '<rect x="6.5" y="3.5" width="11" height="17" rx="2"/><circle cx="9.5" cy="8" r="1.1" class="f"/><circle cx="14.5" cy="8" r="1.1" class="f"/><circle cx="12" cy="15" r="2.4"/>',
+  amp:   '<rect x="3" y="6.5" width="18" height="12" rx="2"/><circle cx="7" cy="10.5" r="1" class="f"/><circle cx="10.3" cy="10.5" r="1" class="f"/><circle cx="13.7" cy="10.5" r="1" class="f"/><circle cx="17" cy="10.5" r="1" class="f"/><path d="M6 15h12"/>',
+  eq:    '<path d="M6 4v16M12 4v16M18 4v16"/><rect x="4" y="13" width="4" height="3" rx="1" class="f"/><rect x="10" y="7" width="4" height="3" rx="1" class="f"/><rect x="16" y="11" width="4" height="3" rx="1" class="f"/>',
+  mod:   '<path d="M3 12c1.5-5 4.5-5 6 0s4.5 5 6 0 4.5-5 6 0"/>',
+  delay: '<circle cx="6" cy="12" r="3" class="f"/><circle cx="13" cy="12" r="2.2" class="f" opacity=".65"/><circle cx="19" cy="12" r="1.5" class="f" opacity=".35"/>',
+  verb:  '<path d="M3.5 18a8.5 8.5 0 0 1 17 0M7.5 18a4.5 4.5 0 0 1 9 0"/><circle cx="12" cy="18" r="1.3" class="f"/>',
+  vol:   '<path d="M4 18L20 6v12z"/>'
+};
+function icon(cat, off, size){
+  size = size || 32;
+  const c = CATS[cat].color, ink = off ? c : '#0C0D0F';
+  const bg = off ? `<rect x="1" y="1" width="30" height="30" rx="8" fill="#15171B" stroke="${c}" stroke-width="1.6" stroke-dasharray="3 2.4"/>`
+                 : `<rect x="0" y="0" width="32" height="32" rx="9" fill="${c}"/>`;
+  const g = GLYPH[cat].replace(/class="f"/g, `fill="${ink}" stroke="none"`);
+  return `<svg class="bicon" width="${size}" height="${size}" viewBox="0 0 32 32" aria-hidden="true">${bg}<g transform="translate(4 4)" fill="none" stroke="${ink}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ${off?'opacity=".85"':''}>${g}</g></svg>`;
+}
+
 const dspOf = list => list.reduce((s,b)=>s+CATS[b.cat].dsp,0);
 
 /* 조작 안내: 화면마다 처음엔 보이고, X로 닫으면 기억. ? 버튼으로 다시 보기 */
@@ -388,7 +411,7 @@ function vMain(){
     const c = CATS[b.cat], isOff = !!off[b.uid];
     return `<div class="crow ${isOff?'off':'on'}">
       <button class="open" data-act="openBlock" data-uid="${b.uid}" aria-label="${esc(b.model)} 세부 조절 열기">
-        <span class="node ${isOff?'off':''}" style="${isOff?'border-color':'background'}:${c.color}"></span>
+        ${icon(b.cat, isOff, 32)}
         <span style="display:flex;flex-direction:column;min-width:0"><span class="nm ell">${esc(b.model)}</span><span class="cat">${c.name}</span></span>
         <span class="chev">${I.chev}</span>
       </button>
@@ -427,11 +450,11 @@ function vMain(){
     </div>
     <div class="chain">${rows || '<div class="empty">블록이 없어요</div>'}</div>
   </div>
-  <div class="bar">
+  <div class="dock"><div class="bar">
     <button data-act="tuner">${I.tuner}튜너</button>
     <button data-act="tap"><span class="bpm" id="bpm">${S.bpm}</span><small>탭 템포</small></button>
     <button data-act="go" data-to="presets">${I.grid}프리셋</button>
-  </div>`;
+  </div></div>`;
 }
 
 function vEdit(){
@@ -442,24 +465,26 @@ function vEdit(){
     const c = CATS[b.cat];
     list += `<div class="erow">
       <button class="grip" data-i="${i}" aria-label="${esc(b.model)} 순서 바꾸기: 꾹 잡고 위아래로 끌기">${I.grip}</button>
-      <span class="dot" style="background:${c.color}"></span>
+      ${icon(b.cat, false, 30)}
       <span class="txt"><span class="ell" style="font-size:14px;font-weight:500">${esc(b.model)}</span><span class="cat">${c.name}</span></span>
       <button class="ibtn del" data-act="remove" data-i="${i}" aria-label="${esc(b.model)} 삭제">${I.trash}</button>
     </div>` + ins(i+1);
   });
   return `
+  <div class="stick">
   <div class="top">
     <button class="linkbtn muted" data-act="cancelEdit">취소</button>
     <span class="title">체인 편집</span>
     <button class="linkbtn" data-act="doneEdit" style="font-weight:700">완료</button>
   </div>
-  ${tip('edit')}
-  <div class="notice">${I.shield}<span>완료를 눌러야 적용돼요<br>연습 모드라 페달에는 보내지 않아요</span></div>
   <div style="display:flex;flex-direction:column;gap:6px">
     <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mute)">DSP 사용량 (예상치)</span><span style="font-family:var(--num)">${dsp}% · 블록 ${d.length}/${MAX_BLOCKS}</span></div>
     <div class="meter ${dsp>100?'full':''}"><i style="width:${Math.min(dsp,100)}%"></i></div>
   </div>
-  <div class="elist" id="elist">${list}</div>
+  </div>
+    ${tip('edit')}
+  <div class="notice">${I.shield}<span>완료를 눌러야 적용돼요<br>연습 모드라 페달에는 보내지 않아요</span></div>
+<div class="elist" id="elist">${list}</div>
   ${full?'<div class="full">블록이 가득 찼어요 (최대 8개). 하나를 지워야 추가할 수 있어요.</div>':''}
   ${d.length===0?'<div class="empty">블록을 모두 지웠어요. 위의 "여기에 추가"로 넣어 보세요.</div>':''}`;
 }
@@ -489,10 +514,10 @@ function vAdd(){
   </div>
   <div class="models">
     ${models.length ? models.map(([k,m]) => { const on = S.addModel===m && (q || S.addCat===k);
-      return `<button class="${on?'on':''}" data-act="pickModel" data-k="${k}" data-m="${esc(m)}"><span style="display:flex;flex-direction:column"><span>${esc(m)}</span>${q?`<span class="cat">${CATS[k].name}</span>`:''}</span>${on?I.check:''}</button>`; }).join('')
+      return `<button class="${on?'on':''}" data-act="pickModel" data-k="${k}" data-m="${esc(m)}"><span style="display:flex;align-items:center;gap:12px;min-width:0">${icon(k,false,30)}<span style="display:flex;flex-direction:column"><span>${esc(m)}</span>${q?`<span class="cat">${CATS[k].name}</span>`:''}</span></span>${on?I.check:''}</button>`; }).join('')
       : '<div class="empty">검색 결과가 없어요</div>'}
   </div>
-  <div style="margin-top:auto"><button class="cta" data-act="addBlock" ${S.addModel?'':'disabled'}>${S.addModel?esc(S.addModel)+' 추가':'블록을 골라 주세요'}</button></div>`;
+  <div class="dock"><button class="cta" data-act="addBlock" ${S.addModel?'':'disabled'}>${S.addModel?esc(S.addModel)+' 추가':'블록을 골라 주세요'}</button></div>`;
 }
 
 function vBlock(){
@@ -502,6 +527,7 @@ function vBlock(){
   const head = `
   <div class="top" style="justify-content:flex-start;gap:12px">
     <button class="round" data-act="go" data-to="main" aria-label="메인으로">${I.back}</button>
+    ${icon(b.cat, isOff, 40)}
     <div style="flex:1;display:flex;flex-direction:column;min-width:0">
       <span class="label">${c.name.toUpperCase()} · BLOCK ${S.chain.indexOf(b)+1}</span>
       <span class="ell" style="font-size:20px;font-weight:800;letter-spacing:-.02em">${esc(b.model)}</span>
