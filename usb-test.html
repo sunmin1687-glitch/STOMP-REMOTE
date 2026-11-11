@@ -117,6 +117,7 @@ body.v-test #iface{display:none}
 
 /* 블록 편집 */
 .graph{background:var(--card);border-radius:22px;padding:12px 8px 6px;touch-action:none}
+.gcap{font-size:12px;color:var(--soft);padding:0 8px 4px;min-height:18px}
 .graph svg{display:block;width:100%;height:auto}
 .params{display:flex;flex-direction:column;gap:16px}
 .param .hd{display:flex;justify-content:space-between;align-items:baseline}
@@ -288,6 +289,7 @@ document.getElementById('midi').addEventListener('click', async () => {
 const root = document.getElementById('iface');
 const toastEl = document.getElementById('toast');
 const MAX_BLOCKS = 8;
+const APP_VER = 'v5';
 
 const CATS = {
   dyn:   { name:'다이내믹',  color:'#7AA7FF', dsp:6,  models:['Deluxe Comp','LA Studio Comp','Red Squeeze','Noise Gate'] },
@@ -300,15 +302,33 @@ const CATS = {
   vol:   { name:'볼륨',      color:'#C3C8D1', dsp:2,  models:['Volume Pedal','Gain'] }
 };
 const CAT_ORDER = ['dyn','drive','amp','eq','mod','delay','verb','vol'];
+/* 파라미터: [키, 이름, 최소, 최대, 기본값, 단위, 눈금(lin|log)] */
 const PARAMS = {
-  dyn:   [['Threshold','x10'],['Ratio','x10'],['Level','x10']],
-  drive: [['Drive','x10'],['Tone','x10'],['Level','x10']],
-  amp:   [['Drive','x10'],['Bass','x10'],['Mid','x10'],['Treble','x10'],['Ch Vol','x10']],
-  mod:   [['Speed','x10'],['Depth','x10'],['Mix','pct']],
-  delay: [['Time','ms'],['Feedback','pct'],['Mix','pct']],
-  verb:  [['Decay','x10'],['Predelay','ms100'],['Mix','pct']],
-  vol:   [['Position','pct']]
+  dyn:   [['thr','Threshold',-60,0,-24,'db'],['ratio','Ratio',1,20,4,'ratio'],['level','Level',-12,12,2,'db']],
+  drive: [['drive','Drive',0,10,5.5,'ten'],['tone','Tone',0,10,4,'ten'],['level','Level',0,10,6,'ten']],
+  amp:   [['drive','Drive',0,10,4.5,'ten'],['bass','Bass',0,10,4,'ten'],['mid','Mid',0,10,6.5,'ten'],['treble','Treble',0,10,5.5,'ten'],['chvol','Ch Vol',0,10,7,'ten']],
+  mod:   [['speed','Speed',0.1,10,0.8,'hz','log'],['depth','Depth',0,10,5,'ten'],['mix','Mix',0,100,50,'pct']],
+  delay: [['time','Time',20,2000,420,'ms','log'],['fb','Feedback',0,100,35,'pct'],['mix','Mix',0,100,30,'pct']],
+  verb:  [['decay','Decay',0.5,10,3.2,'s','log'],['pre','Predelay',0,200,20,'ms'],['mix','Mix',0,100,35,'pct']],
+  vol:   [['pos','Position',0,100,100,'pct']]
 };
+const STEP = { db:0.5, ratio:0.1, ten:0.1, hz:0.01, pct:1, ms:1, s:0.1 };
+const defsOf = cat => (PARAMS[cat]||[]).map(([k,label,min,max,v,unit,scale]) => ({k,label,min,max,v,unit,scale:scale||'lin'}));
+const defOf = (cat,k) => defsOf(cat).find(d => d.k === k);
+const norm = (d,v) => d.scale === 'log' ? Math.log(v/d.min)/Math.log(d.max/d.min) : (v-d.min)/(d.max-d.min);
+const denorm = (d,n) => { n = Math.max(0, Math.min(1, n)); const v = d.scale === 'log' ? d.min*Math.pow(d.max/d.min, n) : d.min + n*(d.max-d.min); const st = STEP[d.unit]||0.1; return Math.round(v/st)*st; };
+const clampTo = (d,v) => denorm(d, norm(d, Math.max(d.min, Math.min(d.max, v))));
+function fmtVal(d,v){
+  switch(d.unit){
+    case 'db': return (v>0?'+':v<0?'−':'') + Math.abs(v).toFixed(1) + ' dB';
+    case 'ratio': return v.toFixed(1) + ':1';
+    case 'hz': return v.toFixed(2) + ' Hz';
+    case 'pct': return Math.round(v) + '%';
+    case 'ms': return Math.round(v) + ' ms';
+    case 's': return v.toFixed(1) + ' s';
+    default: return v.toFixed(1);
+  }
+}
 const PRESETS = ['예배 클린','예배 크런치','앰비언트 패드','밴드 리듬','밴드 리드','어쿠스틱 DI','재즈 클린','녹음용 드라이','빈 프리셋'];
 const PID = i => String(Math.floor(i/3)+1).padStart(2,'0') + 'ABC'[i%3];
 
@@ -316,7 +336,7 @@ let uidSeq = 1;
 function makeBlock(cat, model){
   const b = { uid: uidSeq++, cat, model };
   if (cat === 'eq') b.bands = [{f:120,g:-1.5,q:0.7},{f:800,g:3,q:1.2},{f:6500,g:-2,q:0.9}];
-  else b.params = (PARAMS[cat]||[]).map(([label,fmt],i) => ({ label, fmt, v: [0.55,0.4,0.6,0.5,0.7][i] }));
+  else { b.p = {}; defsOf(cat).forEach(d => { b.p[d.k] = d.v; }); }
   return b;
 }
 function clone(x){ return JSON.parse(JSON.stringify(x)); }
@@ -367,7 +387,7 @@ const TIPS = {
   edit: ['왼쪽 <b>⠿ 손잡이</b>를 꾹 잡고 위아래로 끌면 순서가 바뀌어요', '<b>+ 여기에 추가</b>로 원하는 자리에 블록을 넣어요', '<b>휴지통</b>으로 삭제 · <b>취소</b>를 누르면 전부 되돌아가요'],
   add: ['위쪽 <b>종류</b>를 고르거나 <b>이름을 검색</b>해요', '모델을 누른 뒤 맨 아래 <b>추가</b> 버튼을 눌러요'],
   eq: ['그래프의 <b>번호 점</b>을 끌면 주파수(좌우)·게인(상하)이 바뀌어요', '<b>저음·중음·고음</b>을 고른 뒤 슬라이더로 세밀하게 조절해요'],
-  block: ['슬라이더를 <b>좌우로 밀어</b> 값을 바꿔요', '오른쪽 위 <b>스위치</b>로 이 블록을 켜고 꺼요'],
+  block: ['그래프의 <b>점을 끌어서</b> 조절하거나, 아래 <b>슬라이더</b>를 밀어요', '오른쪽 위 <b>스위치</b>로 이 블록을 켜고 꺼요'],
   presets: ['프리셋을 <b>누르면 바로 전환</b>돼요', '<b>체인 편집 허용</b>을 꺼 두면 실수로 체인을 바꿀 일이 없어요']
 };
 function tip(key){
@@ -376,14 +396,6 @@ function tip(key){
     <button class="x" data-act="closeTip" data-k="${key}" aria-label="안내 닫기">${I.close}</button></div>`;
 }
 function saveTips(){ try { localStorage.setItem(TIP_KEY, JSON.stringify(tipsClosed)); } catch(e) {} }
-const fmtParam = (p) => {
-  switch(p.fmt){
-    case 'ms': return Math.round(20 + p.v*1980) + ' ms';
-    case 'ms100': return Math.round(p.v*100) + ' ms';
-    case 'pct': return Math.round(p.v*100) + '%';
-    default: return (p.v*10).toFixed(1);
-  }
-};
 
 const I = {
   back:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>',
@@ -421,7 +433,7 @@ function vMain(){
   }).join('');
   return `
   <div class="top">
-    <span class="badge demo" style="white-space:nowrap"><i></i>연습 모드</span>
+    <span class="badge demo" style="white-space:nowrap"><i></i>연습 모드 · ${APP_VER}</span>
     <div style="display:flex;gap:8px">
       <button class="chip" data-act="toTest">테스트 화면</button>
       <button class="help" data-act="showTips" aria-label="조작 안내 다시 보기">?</button>
@@ -529,32 +541,30 @@ function vBlock(){
     <button class="round" data-act="go" data-to="main" aria-label="메인으로">${I.back}</button>
     ${icon(b.cat, isOff, 40)}
     <div style="flex:1;display:flex;flex-direction:column;min-width:0">
-      <span class="label">${c.name.toUpperCase()} · BLOCK ${S.chain.indexOf(b)+1}</span>
+      <span class="label" style="color:${c.color}">${c.name.toUpperCase()} · BLOCK ${S.chain.indexOf(b)+1}</span>
       <span class="ell" style="font-size:20px;font-weight:800;letter-spacing:-.02em">${esc(b.model)}</span>
     </div>
     <button class="sw ${isOff?'':'on'}" data-act="toggleBlock" data-uid="${b.uid}" aria-label="블록 ${isOff?'켜기':'끄기'}"></button>
   </div>`;
+  const graph = `<div class="graph" style="border:1px solid ${c.color}33"><div class="gcap" id="gcap"></div><svg id="bg" viewBox="0 0 ${GW} ${GH}" role="img" aria-label="${esc(b.model)} 그래프"></svg></div>`;
   if (b.cat === 'eq') {
     const band = b.bands[S.band];
-    return head + tip('eq') + `
-    <div class="graph"><svg id="eq" viewBox="0 0 340 210" role="img" aria-label="EQ 주파수 응답 그래프"></svg></div>
+    return head + tip('eq') + graph + `
     <div class="seg light" role="group" aria-label="밴드">${['저음','중음','고음'].map((n,i)=>`<button class="${S.band===i?'on':''}" data-act="band" data-i="${i}">${n}</button>`).join('')}</div>
     <div class="params">
-      ${paramRow('eqf','주파수',fmtF(band.f),'0','1000','1',Math.round(f2s(band.f)*1000))}
-      ${paramRow('eqg','게인',fmtG(band.g),'-120','120','1',Math.round(band.g*10))}
-      ${paramRow('eqq','Q (폭)',band.q.toFixed(2),'20','400','1',Math.round(band.q*100))}
-    </div>
-    <div class="hint" style="margin-top:auto">점을 끌면 주파수(좌우)·게인(상하)이 함께 바뀌어요</div>`;
+      ${paramRow('eqf','주파수',fmtF(band.f),Math.round(f2s(band.f)*1000),c.color)}
+      ${paramRow('eqg','게인',fmtG(band.g),Math.round((band.g+12)/24*1000),c.color)}
+      ${paramRow('eqq','Q (폭)',band.q.toFixed(2),Math.round(Math.log(band.q/0.2)/Math.log(20)*1000),c.color)}
+    </div>`;
   }
-  return head + tip('block') + `
+  return head + tip('block') + graph + `
   <div class="params" style="background:var(--card);border-radius:22px;padding:18px">
-    ${b.params.map((p,i)=>paramRow('p'+i,p.label,fmtParam(p),'0','1000','1',Math.round(p.v*1000))).join('')}
-  </div>
-  <div class="hint" style="margin-top:auto">연습 모드 · 값은 이 화면에서만 바뀌어요</div>`;
+    ${defsOf(b.cat).map(d=>paramRow('p-'+d.k,d.label,fmtVal(d,b.p[d.k]),Math.round(norm(d,b.p[d.k])*1000),c.color)).join('')}
+  </div>`;
 }
-function paramRow(id,label,val,min,max,step,v){
+function paramRow(id,label,val,v,color){
   return `<div class="param"><div class="hd"><label for="${id}">${label}</label><span class="v" id="${id}-v">${val}</span></div>
-  <input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${v}"></div>`;
+  <input type="range" id="${id}" min="0" max="1000" step="1" value="${v}" style="accent-color:${color}"></div>`;
 }
 
 function vPresets(){
@@ -572,6 +582,7 @@ function vPresets(){
     </div>
     <div class="kv"><span>상태 읽기</span><span>WebUSB · 대기</span></div>
     <div class="kv"><span>값 조절</span><span>MIDI · 대기</span></div>
+    <div class="kv"><span>앱 버전</span><span>${APP_VER}</span></div>
     <div class="sep">
       <div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:500">체인 편집 허용</span><span style="font-size:12px;color:var(--mute)">켜면 블록 추가·삭제를 페달에 보내요</span></div>
       <button class="sw ${S.allowEdit?'on':''}" data-act="allowEdit" aria-label="체인 편집 허용 ${S.allowEdit?'끄기':'켜기'}"></button>
@@ -587,7 +598,7 @@ function vPresets(){
 function render(){
   const v = { main:vMain, edit:vEdit, add:vAdd, block:vBlock, presets:vPresets }[S.screen] || vMain;
   root.innerHTML = v();
-  if (S.screen === 'block') drawEq();
+  if (S.screen === 'block') drawGraph();
   if (S.screen === 'add') {
     const q = document.getElementById('q');
     q.addEventListener('input', () => { S.addQuery = q.value; const pos = q.selectionStart; render(); const n = document.getElementById('q'); n.focus(); try{ n.setSelectionRange(pos,pos); }catch(e){} });
@@ -595,62 +606,159 @@ function render(){
 }
 function go(screen){ S.screen = screen; render(); window.scrollTo(0,0); }
 
-/* ---------- EQ 그래프 ---------- */
-const GW = 340, GH = 190, FMIN = 20, FMAX = 20000, GMAX = 12;
+/* ---------- 블록 그래프 (블록 종류마다 다른 그림, 점을 끌어서 조절) ---------- */
+const GW = 340, GH = 220, GL = 34, GR = 326, GT = 22, GB = 192;
+const FMIN = 20, FMAX = 20000, GMAX = 12;
 const f2s = f => Math.log10(f/FMIN)/Math.log10(FMAX/FMIN);
 const s2f = s => FMIN*Math.pow(FMAX/FMIN, s);
-const fx = f => f2s(f)*GW;
-const gy = g => GH/2 - g*(GH/2-14)/GMAX;
+const fx = f => GL + f2s(f)*(GR-GL);
+const xf = x => s2f(Math.max(0, Math.min(1, (x-GL)/(GR-GL))));
+const gy = g => (GT+GB)/2 - g*((GB-GT)/2)/GMAX;
+const yg = y => ((GT+GB)/2 - y)/((GB-GT)/2)*GMAX;
+const cl = (v,a,b) => Math.max(a, Math.min(b, v));
 const fmtF = f => f >= 1000 ? (f/1000).toFixed(f>=10000?1:2).replace(/\.?0+$/,'') + ' kHz' : Math.round(f) + ' Hz';
 const fmtG = g => (g>0?'+':g<0?'−':'') + Math.abs(g).toFixed(1) + ' dB';
-function resp(bands, f){ return bands.reduce((s,b) => { const o = Math.log2(f/b.f), w = 0.9/b.q; return s + b.g*Math.exp(-0.5*(o/w)*(o/w)); }, 0); }
-function curEqBlock(){ return S.chain.find(x => x.uid === S.blockUid); }
-function drawEq(){
-  const svg = document.getElementById('eq'); if (!svg) return;
-  const b = curEqBlock(); if (!b || !b.bands) return;
-  let d = '';
-  for (let i = 0; i <= 160; i++) { const s = i/160, f = s2f(s), y = Math.max(2, Math.min(GH-2, gy(resp(b.bands,f)))); d += (i?'L':'M') + (s*GW).toFixed(1) + ',' + y.toFixed(1); }
-  const grid = [100,1000,10000].map(f => `<line x1="${fx(f)}" y1="0" x2="${fx(f)}" y2="${GH}" stroke="#23262C"/><text x="${fx(f)+3}" y="${GH+16}" fill="#9BA1AC" font-size="10" font-family="Space Grotesk">${f>=1000?f/1000+'k':f}</text>`).join('');
-  const pts = b.bands.map((bd,i) => {
-    const x = fx(bd.f), y = gy(bd.g), on = i === S.band;
-    return `<g data-band="${i}" style="cursor:grab"><circle cx="${x}" cy="${y}" r="24" fill="transparent"/>
-      ${on && !drag ? `<circle class="pulse" cx="${x}" cy="${y}" r="14" pointer-events="none"/>` : ''}
-      <circle cx="${x}" cy="${y}" r="${on?13:11}" fill="${on?'#D4F25A':'#15171B'}" stroke="${on?'#0C0D0F':'#9BA1AC'}" stroke-width="${on?3:2}"/>
-      <text x="${x}" y="${y+4}" text-anchor="middle" font-size="11" font-weight="700" font-family="Space Grotesk" fill="${on?'#12140A':'#F3F4F6'}" pointer-events="none">${i+1}</text></g>`;
+const peak = (f,fc,g,q) => { const o = Math.log2(f/fc), w = 0.9/q; return g*Math.exp(-0.5*(o/w)*(o/w)); };
+const shelfLo = (f,fc,g) => g/(1+Math.pow(f/fc,2));
+const shelfHi = (f,fc,g) => g/(1+Math.pow(fc/f,2));
+function curBlock(){ return S.chain.find(x => x.uid === S.blockUid); }
+const T = (x,y,txt,anchor,fill) => `<text x="${x}" y="${y}" fill="${fill||'#9BA1AC'}" font-size="10" font-family="Space Grotesk" text-anchor="${anchor||'middle'}">${txt}</text>`;
+const axes = () => `<path d="M${GL} ${GT}V${GB}H${GR}" fill="none" stroke="#2A2D33"/>`;
+function freqGrid(){ return [100,1000,10000].map(f=>`<line x1="${fx(f)}" y1="${GT}" x2="${fx(f)}" y2="${GB}" stroke="#23262C"/>`+T(fx(f),GB+16,f>=1000?f/1000+'k':f)).join('')
+  + `<line x1="${GL}" y1="${gy(0)}" x2="${GR}" y2="${gy(0)}" stroke="#33373F"/>` + T(GL-4,gy(6)+3,'+6','end') + T(GL-4,gy(-6)+3,'−6','end'); }
+function curvePath(fn){ let d=''; for (let i=0;i<=160;i++){ const x = GL + i/160*(GR-GL), y = cl(gy(fn(xf(x))), GT+1, GB-1); d += (i?'L':'M')+x.toFixed(1)+','+y.toFixed(1); } return d; }
+
+const GRAPH = {
+  eq(b, col){
+    const fn = f => b.bands.reduce((s,bd)=>s+peak(f,bd.f,bd.g,bd.q),0), d = curvePath(fn);
+    return { cap:'번호 점 = 밴드 · 좌우 주파수, 위아래 양',
+      body: freqGrid() + `<path d="${d}L${GR},${GB}L${GL},${GB}Z" fill="${col}" fill-opacity=".1"/><path d="${d}" fill="none" stroke="${col}" stroke-width="2.5" stroke-linejoin="round"/>`,
+      handles: b.bands.map((bd,i)=>({ x:fx(bd.f), y:gy(bd.g), num:i+1, sel:i===S.band, band:i,
+        apply:(x,y)=>{ bd.f = Math.round(cl(xf(x),FMIN,FMAX)); bd.g = Math.round(cl(yg(y),-GMAX,GMAX)*10)/10; } })) };
+  },
+  dyn(b, col){
+    const p = b.p, X = d => GL + (d+60)/60*(GR-GL), Y = d => GB - (d+60)/60*(GB-GT);
+    let d=''; for (let i=-60;i<=0;i++){ const o = i < p.thr ? i : p.thr + (i-p.thr)/p.ratio; d += (i===-60?'M':'L')+X(i).toFixed(1)+','+Y(o).toFixed(1); }
+    const outTop = p.thr + (0-p.thr)/p.ratio;
+    return { cap:`${Math.round(p.thr)} dB 위로는 ${p.ratio.toFixed(1)}:1로 눌려요`,
+      body: axes() + `<line x1="${X(-60)}" y1="${Y(-60)}" x2="${X(0)}" y2="${Y(0)}" stroke="#33373F" stroke-dasharray="3 5"/>`
+        + `<rect x="${X(p.thr)}" y="${GT}" width="${GR-X(p.thr)}" height="${GB-GT}" fill="${col}" fill-opacity=".06"/>`
+        + `<path d="${d}" fill="none" stroke="${col}" stroke-width="2.5"/>` + T((GL+GR)/2,GB+16,'들어오는 소리'),
+      handles: [
+        { x:X(p.thr), y:Y(p.thr), tag:'기준점', apply:(x)=>{ p.thr = clampTo(defOf('dyn','thr'), (x-GL)/(GR-GL)*60-60); } },
+        { x:X(0), y:Y(outTop), tag:'누르는 정도', apply:(x,y)=>{ const out = (GB-y)/(GB-GT)*60-60; p.ratio = out <= p.thr+0.3 ? 20 : clampTo(defOf('dyn','ratio'), (0-p.thr)/(out-p.thr)); } }
+      ] };
+  },
+  drive(b, col){
+    const p = b.p, k = 0.6 + p.drive*1.2, lvl = 0.25 + 0.75*p.level/10;
+    const out = x => lvl*Math.tanh(k*x)/Math.tanh(k);
+    const X = x => GL + x*(GR-GL), Y = y => GB - y*(GB-GT);
+    let d=''; for (let i=0;i<=100;i++){ const x=i/100; d += (i?'L':'M')+X(x).toFixed(1)+','+Y(out(x)).toFixed(1); }
+    return { cap: p.drive >= 6 ? '곡선이 꺾일수록 많이 찌그러져요 · 지금은 강한 드라이브' : '곡선이 꺾일수록 많이 찌그러져요',
+      body: axes() + `<line x1="${X(0)}" y1="${Y(0)}" x2="${X(1)}" y2="${Y(1)}" stroke="#33373F" stroke-dasharray="3 5"/>`
+        + `<path d="${d}L${X(1)},${Y(0)}Z" fill="${col}" fill-opacity=".1"/><path d="${d}" fill="none" stroke="${col}" stroke-width="2.5"/>`
+        + T((GL+GR)/2,GB+16,'기타 신호 세기'),
+      handles: [
+        { x:X(0.22), y:Y(out(0.22)), tag:'드라이브', apply:(x,y)=>{ const want = cl((GB-y)/(GB-GT),0,1); let best=p.drive, bd=9;
+            for (let v=0; v<=10.001; v+=0.1){ const kk=0.6+v*1.2, o=lvl*Math.tanh(kk*0.22)/Math.tanh(kk); if (Math.abs(o-want)<bd){bd=Math.abs(o-want);best=v;} } p.drive = Math.round(best*10)/10; } },
+        { x:X(1), y:Y(out(1)), tag:'레벨', apply:(x,y)=>{ const f = cl((GB-y)/(GB-GT),0.25,1); p.level = Math.round((f-0.25)/0.75*100)/10; } }
+      ] };
+  },
+  amp(b, col){
+    const p = b.p, gB=(p.bass-5)*2.4, gM=(p.mid-5)*2.4, gT=(p.treble-5)*2.4;
+    const fn = f => shelfLo(f,140,gB) + peak(f,650,gM,0.8) + shelfHi(f,3200,gT), d = curvePath(fn);
+    const set = k => (x,y) => { p[k] = Math.round(cl(yg(y)/2.4+5,0,10)*10)/10; };
+    return { cap:'톤 컨트롤이 만드는 소리 모양 · 점을 위아래로',
+      body: freqGrid() + `<path d="${d}L${GR},${GB}L${GL},${GB}Z" fill="${col}" fill-opacity=".1"/><path d="${d}" fill="none" stroke="${col}" stroke-width="2.5"/>`,
+      handles: [ { x:fx(90), y:gy(gB), tag:'Bass', apply:set('bass') }, { x:fx(650), y:gy(gM), tag:'Mid', apply:set('mid') }, { x:fx(5000), y:gy(gT), tag:'Treble', apply:set('treble') } ] };
+  },
+  mod(b, col, G){
+    const p = b.p, mid = (GT+GB)/2, amax = (GB-GT)/2-6, sec = 4, amp = p.depth/10*amax;
+    let d=''; for (let i=0;i<=300;i++){ const t=i/300*sec, y = mid - amp*Math.sin(2*Math.PI*p.speed*t); d += (i?'L':'M')+(GL+i/300*(GR-GL)).toFixed(1)+','+y.toFixed(1); }
+    const ticks = [0,1,2,3,4].map(t=>T(GL+t/sec*(GR-GL),GB+16,t+'s')).join('');
+    return { cap:`1초에 ${p.speed.toFixed(2)}번 흔들려요 · 높이 = 깊이`,
+      body: `<line x1="${GL}" y1="${mid}" x2="${GR}" y2="${mid}" stroke="#33373F"/>` + `<path d="${d}" fill="none" stroke="${col}" stroke-width="2.5"/>` + ticks,
+      handles: [ { x:GL + (1/(4*p.speed))/sec*(GR-GL), y:mid-amp, tag:'빠르기·깊이', apply:(x,y)=>{ const t = Math.max(0.02,(x-GL)/(GR-GL)*sec); p.speed = clampTo(defOf('mod','speed'), 1/(4*t)); p.depth = Math.round(cl((mid-y)/amax,0,1)*100)/10; } } ] };
+  },
+  delay(b, col, G){
+    const p = b.p, span = (G && G.span) || Math.max(1600, p.time*6), X = t => GL + t/span*(GR-GL), H = f => f*(GB-GT);
+    const mix = p.mix/100, fb = Math.min(0.98, p.fb/100*0.95);
+    let body = axes() + `<rect x="${X(0)-5}" y="${GB-H(1-mix*0.5)}" width="10" height="${H(1-mix*0.5)}" rx="2" fill="#C9CED6"/>`;
+    const echo = []; let a = mix;
+    for (let k=1; k<40 && X(p.time*k) < GR && a > 0.01; k++){ body += `<rect x="${X(p.time*k)-5}" y="${GB-H(a)}" width="10" height="${H(a)}" rx="2" fill="${col}" opacity="${(0.35+0.65*a/Math.max(0.01,mix)).toFixed(2)}"/>`; echo.push([X(p.time*k), GB-H(a)]); a *= fb; }
+    const stp = span > 4000 ? 1000 : 500; for (let t=0; t<=span; t+=stp) body += T(X(t),GB+16,(t/1000).toFixed(1)+'s');
+    const geom = { span };
+    const hs = [ { x:(echo[0]||[X(p.time)])[0], y:(echo[0]||[0,GB-H(mix)])[1], tag:'간격·양', geom,
+      apply:(x,y,g)=>{ p.time = clampTo(defOf('delay','time'), (x-GL)/(GR-GL)*g.span); p.mix = Math.round(cl((GB-y)/(GB-GT),0,1)*100); } } ];
+    if (echo[1]) hs.push({ x:echo[1][0], y:echo[1][1], tag:'반복', geom, apply:(x,y)=>{ const m = Math.max(0.01,p.mix/100), h = cl((GB-y)/(GB-GT),0,1); p.fb = Math.round(cl(h/m/0.95,0,1)*100); } });
+    return { cap:'흰 막대 = 원음 · 색 막대 = 메아리', body, handles: hs };
+  },
+  verb(b, col, G){
+    const p = b.p, pre = p.pre/1000, span = (G && G.span) || Math.max(1.5, p.decay*1.3 + pre), X = s => GL + s/span*(GR-GL), mix = p.mix/100;
+    let d = `M${X(pre)},${GB}`; for (let i=0;i<=160;i++){ const t = pre + i/160*(span-pre); d += `L${X(t).toFixed(1)},${(GB-(GB-GT)*mix*Math.exp(-6.9*(t-pre)/p.decay)).toFixed(1)}`; }
+    let body = axes() + `<defs><linearGradient id="vg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${col}" stop-opacity=".75"/><stop offset="1" stop-color="${col}" stop-opacity=".08"/></linearGradient></defs>`
+      + `<path d="${d}L${GR},${GB}Z" fill="url(#vg)"/>`;
+    const stp = span > 6 ? 2 : span > 3 ? 1 : 0.5; for (let t=0; t<=span+1e-6; t+=stp) body += T(X(t),GB+16,t.toFixed(1)+'s');
+    const geom = { span };
+    return { cap:`울림이 사라지는 꼬리 · ${p.decay.toFixed(1)}초`, body,
+      handles: [
+        { x:X(pre), y:GB-(GB-GT)*mix, tag:'시작·양', geom, apply:(x,y,g)=>{ p.pre = Math.round(cl((x-GL)/(GR-GL)*g.span*1000,0,200)); p.mix = Math.round(cl((GB-y)/(GB-GT),0,1)*100); } },
+        { x:X(pre + p.decay/3), y:GB-(GB-GT)*mix*Math.exp(-2.3), tag:'길이', geom, apply:(x,y,g)=>{ const sec = (x-GL)/(GR-GL)*g.span - p.pre/1000; p.decay = clampTo(defOf('verb','decay'), sec*3); } }
+      ] };
+  },
+  vol(b, col){
+    const p = b.p, y = (GT+GB)/2, w = (GR-GL)*p.pos/100;
+    return { cap:'막대 끝을 좌우로 끌어서 조절',
+      body: `<rect x="${GL}" y="${y-14}" width="${GR-GL}" height="28" rx="14" fill="#1D2025"/><rect x="${GL}" y="${y-14}" width="${Math.max(28,w)}" height="28" rx="14" fill="${col}"/>`
+        + `<text x="${(GL+GR)/2}" y="${y-36}" fill="#F3F4F6" font-size="28" font-family="Space Grotesk" text-anchor="middle">${Math.round(p.pos)}%</text>`,
+      handles: [ { x:GL + Math.max(14, w-14), y, apply:(x)=>{ p.pos = Math.round(cl((x-GL)/(GR-GL),0,1)*100); } } ] };
+  }
+};
+
+let handles = [], drag = null;
+function drawGraph(){
+  const svg = document.getElementById('bg'); if (!svg) return;
+  const b = curBlock(); if (!b || !GRAPH[b.cat]) return;
+  const off = !!S.off[S.snap][b.uid], col = off ? '#6B717C' : CATS[b.cat].color;
+  const g = GRAPH[b.cat](b, col, drag && drag.geom);
+  handles = g.handles;
+  const hs = handles.map((h,i) => {
+    const act = (drag && drag.i === i) || h.sel;
+    const pulse = h.sel && !drag ? `<circle class="pulse" cx="${h.x}" cy="${h.y}" r="14" style="stroke:${col}" pointer-events="none"/>` : '';
+    if (h.num) return `${pulse}<circle cx="${h.x}" cy="${h.y}" r="${act?13:11}" fill="${act?col:'#15171B'}" stroke="${act?'#0C0D0F':col}" stroke-width="${act?3:2}"/>`
+      + `<text x="${h.x}" y="${h.y+4}" text-anchor="middle" font-size="11" font-weight="700" font-family="Space Grotesk" fill="${act?'#0C0D0F':'#F3F4F6'}" pointer-events="none">${h.num}</text>`;
+    return `<circle cx="${h.x}" cy="${h.y}" r="${act?15:12}" fill="${col}" fill-opacity=".25"/><circle cx="${h.x}" cy="${h.y}" r="7" fill="#0C0D0F" stroke="${col}" stroke-width="2.5"/>`
+      + (h.tag ? T(cl(h.x, GL+26, GR-26), h.y < GT+24 ? h.y+26 : h.y-18, h.tag, 'middle', '#C9CED6') : '');
   }).join('');
-  svg.innerHTML = `${grid}
-    <line x1="0" y1="${GH/2}" x2="${GW}" y2="${GH/2}" stroke="#33373F"/>
-    <text x="4" y="${gy(6)-4}" fill="#9BA1AC" font-size="10" font-family="Space Grotesk">+6</text>
-    <text x="4" y="${gy(-6)-4}" fill="#9BA1AC" font-size="10" font-family="Space Grotesk">−6</text>
-    <path d="${d}L${GW},${GH}L0,${GH}Z" fill="#D4F25A" fill-opacity=".08"/>
-    <path d="${d}" fill="none" stroke="#D4F25A" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>${pts}`;
+  svg.innerHTML = g.body + hs;
+  const cap = document.getElementById('gcap'); if (cap) cap.textContent = g.cap || '';
 }
-function syncEqInputs(){
-  const b = curEqBlock(); const bd = b.bands[S.band];
+function syncInputs(){
+  const b = curBlock(); if (!b) return;
   const set = (id, v, txt) => { const el = document.getElementById(id); if (el) el.value = v; const t = document.getElementById(id+'-v'); if (t) t.textContent = txt; };
-  set('eqf', Math.round(f2s(bd.f)*1000), fmtF(bd.f));
-  set('eqg', Math.round(bd.g*10), fmtG(bd.g));
-  set('eqq', Math.round(bd.q*100), bd.q.toFixed(2));
+  if (b.bands) { const bd = b.bands[S.band]; set('eqf', Math.round(f2s(bd.f)*1000), fmtF(bd.f)); set('eqg', Math.round((bd.g+12)/24*1000), fmtG(bd.g)); set('eqq', Math.round(Math.log(bd.q/0.2)/Math.log(20)*1000), bd.q.toFixed(2)); }
+  else defsOf(b.cat).forEach(d => set('p-'+d.k, Math.round(norm(d,b.p[d.k])*1000), fmtVal(d,b.p[d.k])));
 }
-let drag = null;
+function svgPoint(svg, e){ const r = svg.getBoundingClientRect(); return [ (e.clientX-r.left)/r.width*GW, (e.clientY-r.top)/r.height*GH ]; }
 root.addEventListener('pointerdown', e => {
-  const g = e.target.closest && e.target.closest('#eq g[data-band]'); if (!g) return;
+  let svg = e.target.closest && e.target.closest('#bg'); if (!svg || !handles.length) return;
+  const [x,y] = svgPoint(svg, e); let best = -1, bd = 30;
+  handles.forEach((h,i) => { const d = Math.hypot(h.x-x, h.y-y); if (d < bd) { bd = d; best = i; } });
+  if (best < 0) return;
   e.preventDefault();
-  const i = +g.dataset.band;
-  if (S.band !== i) { S.band = i; render(); }
-  drag = { svg: document.getElementById('eq'), id: e.pointerId };
-  try { drag.svg.setPointerCapture(e.pointerId); } catch(err) {}
+  const h = handles[best];
+  if (h.band !== undefined && h.band !== S.band) { S.band = h.band; render(); svg = document.getElementById('bg'); }
+  drag = { i: best, h: handles[best], geom: handles[best].geom, id: e.pointerId, svg };
+  try { svg.setPointerCapture(e.pointerId); } catch(err) {}
+  drawGraph();
 });
 root.addEventListener('pointermove', e => {
   if (!drag || e.pointerId !== drag.id) return;
-  const r = drag.svg.getBoundingClientRect();
-  const x = (e.clientX - r.left)/r.width*GW, y = (e.clientY - r.top)/r.height*210;
-  const bd = curEqBlock().bands[S.band];
-  bd.f = Math.round(s2f(Math.max(0, Math.min(1, x/GW))));
-  bd.g = Math.round(Math.max(-GMAX, Math.min(GMAX, (GH/2 - y)*GMAX/(GH/2-14)))*10)/10;
-  drawEq(); syncEqInputs();
+  const [x,y] = svgPoint(drag.svg, e);
+  drag.h.apply(x, y, drag.geom || {});
+  drawGraph(); syncInputs();
 });
-const endDrag = () => { if (drag) { drag = null; drawEq(); } };
+const endDrag = () => { if (drag) { drag = null; drawGraph(); } };
 root.addEventListener('pointerup', endDrag);
 root.addEventListener('pointercancel', endDrag);
 
@@ -698,17 +806,17 @@ root.addEventListener('pointercancel', e => { if (rd && e.pointerId === rd.id) e
 /* ---------- 슬라이더 ---------- */
 root.addEventListener('input', e => {
   const el = e.target; if (el.type !== 'range') return;
-  const b = S.chain.find(x => x.uid === S.blockUid); if (!b) return;
-  const out = document.getElementById(el.id + '-v');
+  const b = curBlock(); if (!b) return;
+  const out = document.getElementById(el.id + '-v'), n = el.value/1000;
   if (b.bands) {
     const bd = b.bands[S.band];
-    if (el.id === 'eqf') { bd.f = Math.round(s2f(el.value/1000)); out.textContent = fmtF(bd.f); }
-    if (el.id === 'eqg') { bd.g = el.value/10; out.textContent = fmtG(bd.g); }
-    if (el.id === 'eqq') { bd.q = el.value/100; out.textContent = bd.q.toFixed(2); }
-    drawEq();
+    if (el.id === 'eqf') { bd.f = Math.round(s2f(n)); out.textContent = fmtF(bd.f); }
+    if (el.id === 'eqg') { bd.g = Math.round((n*24-12)*10)/10; out.textContent = fmtG(bd.g); }
+    if (el.id === 'eqq') { bd.q = Math.round(0.2*Math.pow(20,n)*100)/100; out.textContent = bd.q.toFixed(2); }
   } else {
-    const p = b.params[+el.id.slice(1)]; p.v = el.value/1000; out.textContent = fmtParam(p);
+    const d = defOf(b.cat, el.id.slice(2)); b.p[d.k] = denorm(d, n); out.textContent = fmtVal(d, b.p[d.k]);
   }
+  drawGraph();
 });
 
 /* ---------- 버튼 동작 ---------- */
