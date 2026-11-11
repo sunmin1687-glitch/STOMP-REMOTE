@@ -1,7 +1,7 @@
 // Stomp Remote service worker.
 // Network first: when online you always get the newest version from GitHub;
 // the cached copy is only used when the network is unavailable.
-const CACHE = 'stomp-remote-v3';
+const CACHE = 'stomp-remote-v4';
 const CORE = [
   './stomp-remote.html',
   './usb-test.html',
@@ -25,10 +25,13 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
+  const sameOrigin = new URL(req.url).origin === self.location.origin;
+  // 같은 사이트 파일은 항상 서버에 새 버전이 있는지 확인 (GitHub Pages의 10분 캐시 무시)
+  const net = sameOrigin ? fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' }) : fetch(req);
   event.respondWith(
-    fetch(req)
+    net
       .then((res) => {
-        if (res.ok && new URL(req.url).origin === self.location.origin) {
+        if (res.ok && sameOrigin) {
           const copy = res.clone();
           caches.open(CACHE).then((c) => c.put(req, copy));
         }
