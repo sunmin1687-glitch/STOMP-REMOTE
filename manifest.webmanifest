@@ -1,0 +1,21 @@
+{
+  "name": "Stomp Remote",
+  "short_name": "Stomp",
+  "description": "HX Stomp 원격 조작",
+  "lang": "ko",
+  "id": "./stomp-remote.html",
+  "start_url": "./stomp-remote.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0c0d0f",
+  "theme_color": "#0c0d0f",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "USB 연결 테스트", "short_name": "USB 테스트", "url": "./usb-test.html" }
+  ]
+}
