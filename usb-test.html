@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>STOMP REMOTE · USB 연결 테스트</title>
+<style>
+  body { margin: 0; background: #0C0D0F; color: #F3F4F6; font-family: system-ui, -apple-system, "Noto Sans KR", sans-serif; }
+  main { max-width: 480px; margin: 0 auto; padding: 20px 18px 40px; display: flex; flex-direction: column; gap: 16px; }
+  h1 { font-size: 22px; margin: 0; }
+  p { margin: 0; color: #9BA1AC; font-size: 14px; line-height: 1.5; }
+  button { height: 56px; border-radius: 16px; border: none; background: #D4F25A; color: #12140A; font-size: 16px; font-weight: 700; }
+  button:disabled { background: #2A2D33; color: #9BA1AC; }
+  .card { background: #15171B; border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .row { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
+  .row span:first-child { color: #9BA1AC; }
+  .ok { color: #D4F25A; font-weight: 700; }
+  .bad { color: #FF8A7E; font-weight: 700; }
+  pre { margin: 0; white-space: pre-wrap; word-break: break-all; font-size: 12px; color: #C9CED6; background: #0C0D0F; border-radius: 10px; padding: 10px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>USB 연결 테스트</h1>
+  <p>HX Stomp가 WebUSB로 잡히는지만 확인해요. 페달에는 아무 데이터도 보내지 않아요 (연결 → 정보 읽기 → 바로 해제).</p>
+
+  <div class="card">
+    <div class="row"><span>WebUSB 지원</span><span id="webusb">확인 중…</span></div>
+    <div class="row"><span>Web MIDI 지원</span><span id="webmidi">확인 중…</span></div>
+  </div>
+
+  <button id="go">1. HX Stomp 찾기 (USB)</button>
+  <button id="midi">2. MIDI도 같이 잡히는지 확인</button>
+
+  <div class="card">
+    <div class="row"><span>결과</span><span id="summary">아직 실행 안 함</span></div>
+    <pre id="log"></pre>
+  </div>
+
+  <p>끝나면 아래 결과 칸 내용을 통째로 복사해서 Claude에게 보내 주세요.</p>
+</main>
+
+<script>
+const logEl = document.getElementById('log');
+const summaryEl = document.getElementById('summary');
+function log(msg) { logEl.textContent += msg + '\n'; }
+function hex(n, w) { return '0x' + n.toString(16).toUpperCase().padStart(w || 4, '0'); }
+function setSummary(text, good) {
+  summaryEl.textContent = text;
+  summaryEl.className = good ? 'ok' : 'bad';
+}
+
+const hasUsb = 'usb' in navigator;
+const hasMidi = 'requestMIDIAccess' in navigator;
+document.getElementById('webusb').innerHTML = hasUsb ? '<span class="ok">지원</span>' : '<span class="bad">미지원</span>';
+document.getElementById('webmidi').innerHTML = hasMidi ? '<span class="ok">지원</span>' : '<span class="bad">미지원</span>';
+if (!hasUsb) {
+  document.getElementById('go').disabled = true;
+  log('이 브라우저는 WebUSB를 지원하지 않아요. 안드로이드 Chrome으로 열어 주세요.');
+}
+log('브라우저: ' + navigator.userAgent);
+
+// Line 6 vendor ID. 0x4246 = HX Stomp, 0x4253 = HX Stomp XL (from public USB logs / OpenHX docs)
+const LINE6_VENDOR = 0x0E41;
+
+document.getElementById('go').addEventListener('click', async () => {
+  logEl.textContent = '';
+  let device;
+  try {
+    device = await navigator.usb.requestDevice({ filters: [{ vendorId: LINE6_VENDOR }] });
+  } catch (e) {
+    setSummary('장치 선택 안 됨', false);
+    log('requestDevice 오류: ' + e.name + ' – ' + e.message);
+    log('목록에 HX Stomp가 안 보였다면: 케이블 연결, 페달 전원, 다른 USB-C 케이블을 확인해 주세요.');
+    return;
+  }
+  log('장치 이름: ' + (device.productName || '(이름 없음)'));
+  log('제조사: ' + (device.manufacturerName || '(없음)'));
+  log('VID/PID: ' + hex(device.vendorId) + ' / ' + hex(device.productId));
+  log('USB 버전: ' + device.usbVersionMajor + '.' + device.usbVersionMinor);
+
+  let claimed = null;
+  try {
+    await device.open();
+    log('open(): 성공');
+    if (device.configuration === null) {
+      await device.selectConfiguration(1);
+      log('selectConfiguration(1): 성공');
+    }
+    const ifaces = device.configuration.interfaces;
+    log('인터페이스 개수: ' + ifaces.length);
+    let vendorIface = null;
+    for (const itf of ifaces) {
+      const alt = itf.alternate;
+      const eps = alt.endpoints.map(ep => ep.direction + ' #' + ep.endpointNumber + ' ' + ep.type).join(', ');
+      log('  - 인터페이스 ' + itf.interfaceNumber + ': class ' + hex(alt.interfaceClass, 2) +
+          ' (' + (alt.interfaceName || '') + ') 엔드포인트[' + eps + ']');
+      if (alt.interfaceClass === 0xFF && vendorIface === null) vendorIface = itf.interfaceNumber;
+    }
+    if (vendorIface === null) {
+      setSummary('전용 통로 못 찾음', false);
+      log('제조사 전용(class 0xFF) 인터페이스가 없어요.');
+    } else {
+      try {
+        await device.claimInterface(vendorIface);
+        claimed = vendorIface;
+        setSummary('성공! 전용 통로 사용 가능', true);
+        log('claimInterface(' + vendorIface + '): 성공 → 상태 읽기 개발 가능');
+      } catch (e) {
+        setSummary('전용 통로 잠김', false);
+        log('claimInterface(' + vendorIface + ') 실패: ' + e.name + ' – ' + e.message);
+      }
+    }
+  } catch (e) {
+    setSummary('연결 실패', false);
+    log('오류: ' + e.name + ' – ' + e.message);
+  } finally {
+    try { if (claimed !== null) await device.releaseInterface(claimed); } catch (e) {}
+    try { await device.close(); log('연결 해제 완료 (페달에 보낸 데이터 없음)'); } catch (e) {}
+  }
+});
+
+document.getElementById('midi').addEventListener('click', async () => {
+  if (!hasMidi) { log('Web MIDI 미지원'); return; }
+  try {
+    const access = await navigator.requestMIDIAccess();
+    const ins = [...access.inputs.values()].map(p => p.name);
+    const outs = [...access.outputs.values()].map(p => p.name);
+    log('MIDI 입력: ' + (ins.length ? ins.join(', ') : '없음'));
+    log('MIDI 출력: ' + (outs.length ? outs.join(', ') : '없음'));
+  } catch (e) {
+    log('MIDI 오류: ' + e.name + ' – ' + e.message);
+  }
+});
+</script>
+</body>
+</html>
