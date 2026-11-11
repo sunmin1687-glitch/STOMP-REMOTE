@@ -289,7 +289,7 @@ document.getElementById('midi').addEventListener('click', async () => {
 const root = document.getElementById('iface');
 const toastEl = document.getElementById('toast');
 const MAX_BLOCKS = 8;
-const APP_VER = 'v5';
+const APP_VER = 'v6';
 
 const CATS = {
   dyn:   { name:'다이내믹',  color:'#7AA7FF', dsp:6,  models:['Deluxe Comp','LA Studio Comp','Red Squeeze','Noise Gate'] },
@@ -341,17 +341,38 @@ function makeBlock(cat, model){
 }
 function clone(x){ return JSON.parse(JSON.stringify(x)); }
 
+/* 연습 모드용 프리셋 9개: 프리셋마다 블록 구성과 값이 달라요 */
+const PRESET_DEFS = [
+  [['dyn','Deluxe Comp'],['drive','Minotaur'],['amp','Acoustic Sim'],['eq','Parametric'],['mod','Chorus'],['delay','Simple Delay'],['verb','Plateaux'],['vol','Volume Pedal']],
+  [['dyn','Deluxe Comp',{thr:-18}],['drive','Scream 808',{drive:6.5}],['amp','Brit Plexi Nrm',{drive:6,mid:7}],['eq','Parametric'],['delay','Transistor Tape',{time:380,mix:22}],['verb','Room',{decay:1.4,mix:25}],['vol','Volume Pedal']],
+  [['vol','Volume Pedal',{pos:60}],['dyn','LA Studio Comp',{thr:-30,ratio:6}],['amp','US Double Nrm',{drive:2.5}],['mod','Script Mod Phase',{speed:0.4,depth:6}],['delay','Adriatic Delay',{time:650,fb:55,mix:40}],['delay','Ducked Delay',{time:980,fb:45,mix:30}],['verb','Glitz',{decay:8,pre:60,mix:55}]],
+  [['dyn','Noise Gate',{thr:-45,ratio:10}],['drive','Kinky Boost',{drive:3,level:7.5}],['amp','Brit Plexi Nrm',{drive:7,bass:5,mid:6,treble:6}],['eq','Low/High Cut'],['delay','Simple Delay',{time:300,fb:20,mix:15}],['verb','Room',{decay:1.2,mix:20}]],
+  [['dyn','Noise Gate',{thr:-42,ratio:10}],['drive','Teemah!',{drive:7.5,tone:6}],['amp','Brit Plexi Nrm',{drive:8,mid:7.5,treble:6.5}],['eq','Parametric'],['delay','Transistor Tape',{time:450,fb:40,mix:28}],['verb','Hall',{decay:3.8,mix:30}],['vol','Gain',{pos:85}]],
+  [['dyn','Red Squeeze',{thr:-26,ratio:3}],['amp','Acoustic Sim',{drive:1,bass:4.5,treble:6}],['eq','Parametric'],['verb','Plateaux',{decay:2.2,mix:22}]],
+  [['dyn','LA Studio Comp',{thr:-22,ratio:2.5}],['amp','US Double Nrm',{drive:2,bass:6,treble:4}],['eq','Simple EQ'],['verb','Room',{decay:1.6,mix:18}]],
+  [['amp','Acoustic Sim',{drive:0.5}],['eq','Low/High Cut']],
+  []
+];
+function buildPreset(def){
+  const chain = def.map(([cat,model,over]) => { const b = makeBlock(cat, model); if (over && b.p) Object.assign(b.p, over); return b; });
+  // 스냅샷별 꺼진 블록: 벌스 = 드라이브·모듈레이션 끔, 코러스 = 모듈레이션 끔, 솔로 = 전부 켬
+  const off = [{},{},{}];
+  chain.forEach(b => { if (b.cat === 'drive' || b.cat === 'mod') off[0][b.uid] = true; if (b.cat === 'mod') off[1][b.uid] = true; });
+  return { chain, off };
+}
+const PRE = PRESET_DEFS.map(buildPreset);
+
 const S = {
   screen:'main', preset:0, snap:1, allowEdit:true, bpm:92, taps:[],
-  chain:[ makeBlock('dyn','Deluxe Comp'), makeBlock('drive','Minotaur'), makeBlock('amp','Acoustic Sim'),
-          makeBlock('eq','Parametric'), makeBlock('mod','Chorus'), makeBlock('delay','Simple Delay'),
-          makeBlock('verb','Plateaux'), makeBlock('vol','Volume Pedal') ],
-  off:[{},{},{}],
+  chain: PRE[0].chain, off: PRE[0].off,
   draft:null, insertAt:0, addCat:'drive', addModel:'Minotaur', addQuery:'',
   blockUid:null, band:1
 };
-// 스냅샷별 꺼진 블록: 벌스=드라이브·코러스 끔, 코러스=코러스 끔, 솔로=전부 켬
-S.off[0][S.chain[1].uid]=true; S.off[0][S.chain[4].uid]=true; S.off[1][S.chain[4].uid]=true;
+function loadPreset(i){
+  PRE[S.preset] = { chain: S.chain, off: S.off };   // 바꾼 값은 프리셋마다 기억
+  S.preset = (i + PRESETS.length) % PRESETS.length;
+  S.chain = PRE[S.preset].chain; S.off = PRE[S.preset].off;
+}
 
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let toastT;
@@ -460,7 +481,7 @@ function vMain(){
       <span class="label">SIGNAL CHAIN · ${S.chain.length}/${MAX_BLOCKS}</span>
       <button class="linkbtn" data-act="startEdit">체인 편집</button>
     </div>
-    <div class="chain">${rows || '<div class="empty">블록이 없어요</div>'}</div>
+    <div class="chain">${rows || '<div class="empty">빈 프리셋이에요<br>오른쪽 위 「체인 편집」에서 블록을 넣어 보세요</div>'}</div>
   </div>
   <div class="dock"><div class="bar">
     <button data-act="tuner">${I.tuner}튜너</button>
@@ -823,8 +844,8 @@ root.addEventListener('input', e => {
 const ACT = {
   go: t => go(t.dataset.to),
   toTest: () => setView('test'),
-  presetStep: t => { S.preset = (S.preset + (+t.dataset.d) + PRESETS.length) % PRESETS.length; render(); },
-  pickPreset: t => { S.preset = +t.dataset.i; toast(PID(S.preset) + ' ' + PRESETS[S.preset] + '(으)로 전환 · 연습 모드'); go('main'); },
+  presetStep: t => { loadPreset(S.preset + (+t.dataset.d)); render(); },
+  pickPreset: t => { loadPreset(+t.dataset.i); toast(PID(S.preset) + ' ' + PRESETS[S.preset] + '(으)로 전환 · 연습 모드'); go('main'); },
   snap: t => { S.snap = +t.dataset.i; render(); },
   toggleBlock: t => { const u = +t.dataset.uid, m = S.off[S.snap]; if (m[u]) delete m[u]; else m[u] = true; render(); },
   openBlock: t => { S.blockUid = +t.dataset.uid; S.band = 1; go('block'); },
