@@ -289,19 +289,21 @@ document.getElementById('midi').addEventListener('click', async () => {
 const root = document.getElementById('iface');
 const toastEl = document.getElementById('toast');
 const MAX_BLOCKS = 8;
-const APP_VER = 'v6';
+const APP_VER = 'v7';
 
 const CATS = {
   dyn:   { name:'다이내믹',  color:'#7AA7FF', dsp:6,  models:['Deluxe Comp','LA Studio Comp','Red Squeeze','Noise Gate'] },
   drive: { name:'드라이브',  color:'#F5B248', dsp:7,  models:['Minotaur','Kinky Boost','Scream 808','Teemah!'] },
+  pre:   { name:'프리앰프',  color:'#D9A877', dsp:10, models:['Studio Tube Pre'] },
   amp:   { name:'앰프',      color:'#FF7A6B', dsp:22, models:['Acoustic Sim','US Double Nrm','Brit Plexi Nrm','Essex A30'] },
+  ir:    { name:'IR',        color:'#8A7CFF', dsp:6,  models:['Mono 1024','Mono 2048'] },
   eq:    { name:'EQ',        color:'#8FDB7A', dsp:4,  models:['Parametric','Simple EQ','Low/High Cut'] },
   mod:   { name:'모듈레이션', color:'#C595FF', dsp:8,  models:['Chorus','Tremolo','Script Mod Phase','Optical Trem'] },
   delay: { name:'딜레이',    color:'#5FD0EE', dsp:9,  models:['Simple Delay','Transistor Tape','Adriatic Delay','Ducked Delay'] },
-  verb:  { name:'리버브',    color:'#FF9FCB', dsp:18, models:['Plateaux','Glitz','Room','Hall'] },
+  verb:  { name:'리버브',    color:'#FF9FCB', dsp:18, models:['Plate','Plateaux','Glitz','Room','Hall'] },
   vol:   { name:'볼륨',      color:'#C3C8D1', dsp:2,  models:['Volume Pedal','Gain'] }
 };
-const CAT_ORDER = ['dyn','drive','amp','eq','mod','delay','verb','vol'];
+const CAT_ORDER = ['dyn','pre','drive','amp','ir','eq','mod','delay','verb','vol'];
 /* 파라미터: [키, 이름, 최소, 최대, 기본값, 단위, 눈금(lin|log)] */
 const PARAMS = {
   dyn:   [['thr','Threshold',-60,0,-24,'db'],['ratio','Ratio',1,20,4,'ratio'],['level','Level',-12,12,2,'db']],
@@ -310,11 +312,21 @@ const PARAMS = {
   mod:   [['speed','Speed',0.1,10,0.8,'hz','log'],['depth','Depth',0,10,5,'ten'],['mix','Mix',0,100,50,'pct']],
   delay: [['time','Time',20,2000,420,'ms','log'],['fb','Feedback',0,100,35,'pct'],['mix','Mix',0,100,30,'pct']],
   verb:  [['decay','Decay',0.5,10,3.2,'s','log'],['pre','Predelay',0,200,20,'ms'],['mix','Mix',0,100,35,'pct']],
-  vol:   [['pos','Position',0,100,100,'pct']]
+  vol:   [['pos','Position',0,100,100,'pct']],
+  pre:   [['gain','Gain',0,10,3,'ten'],['lc','Low Cut',20,500,20,'hz0','log'],['hc','High Cut',1000,20000,20000,'hz0','log'],['level','Level',-12,12,0,'db']],
+  ir:    [['irs','IR 칸',0,8,1,'slot'],['lc','Low Cut',20,500,20,'hz0','log'],['hc','High Cut',1000,20000,20000,'hz0','log'],['mix','Mix',0,100,100,'pct'],['level','Level',-12,12,0,'db']]
 };
-const STEP = { db:0.5, ratio:0.1, ten:0.1, hz:0.01, pct:1, ms:1, s:0.1 };
-const defsOf = cat => (PARAMS[cat]||[]).map(([k,label,min,max,v,unit,scale]) => ({k,label,min,max,v,unit,scale:scale||'lin'}));
+/* 모델마다 노브가 다른 경우 (V-STOMP와 같은 구성) */
+const MODEL_PARAMS = {
+  'LA Studio Comp': [['pr','Peak Reduction',0,10,4,'ten'],['gain','Gain',0,10,5.5,'ten'],['mix','Mix',0,100,100,'pct'],['level','Level',-12,12,0,'db']]
+};
+const STEP = { db:0.5, ratio:0.1, ten:0.1, hz:0.01, pct:1, ms:1, s:0.1, hz0:1, slot:1 };
+const CUT_LC = {k:'lc',label:'Low Cut',min:20,max:500,unit:'hz0',scale:'log'}, CUT_HC = {k:'hc',label:'High Cut',min:1000,max:20000,unit:'hz0',scale:'log'};
+const toDefs = arr => (arr||[]).map(([k,label,min,max,v,unit,scale]) => ({k,label,min,max,v,unit,scale:scale||'lin'}));
+const defsOf = cat => toDefs(PARAMS[cat]);
 const defOf = (cat,k) => defsOf(cat).find(d => d.k === k);
+const defsFor = b => toDefs(MODEL_PARAMS[b.model] || PARAMS[b.cat]);
+const defFor = (b,k) => defsFor(b).find(d => d.k === k);
 const norm = (d,v) => d.scale === 'log' ? Math.log(v/d.min)/Math.log(d.max/d.min) : (v-d.min)/(d.max-d.min);
 const denorm = (d,n) => { n = Math.max(0, Math.min(1, n)); const v = d.scale === 'log' ? d.min*Math.pow(d.max/d.min, n) : d.min + n*(d.max-d.min); const st = STEP[d.unit]||0.1; return Math.round(v/st)*st; };
 const clampTo = (d,v) => denorm(d, norm(d, Math.max(d.min, Math.min(d.max, v))));
@@ -326,17 +338,19 @@ function fmtVal(d,v){
     case 'pct': return Math.round(v) + '%';
     case 'ms': return Math.round(v) + ' ms';
     case 's': return v.toFixed(1) + ' s';
+    case 'hz0': return (d.k === 'lc' && v <= 20.5) || (d.k === 'hc' && v >= 19999) ? 'Off' : fmtF(v);
+    case 'slot': return v < 0.5 ? 'IR 없음' : Math.round(v) + '번 칸';
     default: return v.toFixed(1);
   }
 }
-const PRESETS = ['예배 클린','예배 크런치','앰비언트 패드','밴드 리듬','밴드 리드','어쿠스틱 DI','재즈 클린','녹음용 드라이','빈 프리셋'];
+const PRESETS = ['예배 클린','IR 스트럼','예배 크런치','앰비언트 패드','밴드 리듬','밴드 리드','어쿠스틱 DI','재즈 클린','녹음용 드라이','빈 프리셋'];
 const PID = i => String(Math.floor(i/3)+1).padStart(2,'0') + 'ABC'[i%3];
 
 let uidSeq = 1;
 function makeBlock(cat, model){
   const b = { uid: uidSeq++, cat, model };
-  if (cat === 'eq') b.bands = [{f:120,g:-1.5,q:0.7},{f:800,g:3,q:1.2},{f:6500,g:-2,q:0.9}];
-  else { b.p = {}; defsOf(cat).forEach(d => { b.p[d.k] = d.v; }); }
+  if (cat === 'eq') { b.bands = [{f:120,g:-1.5,q:0.7},{f:800,g:3,q:1.2},{f:6500,g:-2,q:0.9}]; b.cut = { lc:20, hc:20000 }; }
+  else { b.p = {}; defsFor(b).forEach(d => { b.p[d.k] = d.v; }); }
   return b;
 }
 function clone(x){ return JSON.parse(JSON.stringify(x)); }
@@ -344,23 +358,40 @@ function clone(x){ return JSON.parse(JSON.stringify(x)); }
 /* 연습 모드용 프리셋 9개: 프리셋마다 블록 구성과 값이 달라요 */
 const PRESET_DEFS = [
   [['dyn','Deluxe Comp'],['drive','Minotaur'],['amp','Acoustic Sim'],['eq','Parametric'],['mod','Chorus'],['delay','Simple Delay'],['verb','Plateaux'],['vol','Volume Pedal']],
+  /* V-STOMP 03C 「IR 스트럼」(2026-11-12 클라우드 저장본) 그대로. 딜레이는 꺼진 채 시작(FS1), 점8분 = 72 BPM에서 625ms */
+  [['ir','Mono 1024',{irs:1,lc:20,hc:20000,mix:80,level:0}],
+   ['pre','Studio Tube Pre',{gain:2,lc:90,hc:20000,level:0}],
+   ['eq','Parametric',{bands:[{f:220,g:-1.5,q:0.7},{f:2200,g:-2,q:1.2},{f:6000,g:1,q:0.7}],cut:{lc:20,hc:15000}}],
+   ['dyn','LA Studio Comp',{pr:4,gain:5.5,mix:100,level:0}],
+   ['delay','Simple Delay',{time:625,fb:25,mix:20,_off:true}],
+   ['verb','Plate',{decay:1.8,pre:20,mix:16}]],
   [['dyn','Deluxe Comp',{thr:-18}],['drive','Scream 808',{drive:6.5}],['amp','Brit Plexi Nrm',{drive:6,mid:7}],['eq','Parametric'],['delay','Transistor Tape',{time:380,mix:22}],['verb','Room',{decay:1.4,mix:25}],['vol','Volume Pedal']],
-  [['vol','Volume Pedal',{pos:60}],['dyn','LA Studio Comp',{thr:-30,ratio:6}],['amp','US Double Nrm',{drive:2.5}],['mod','Script Mod Phase',{speed:0.4,depth:6}],['delay','Adriatic Delay',{time:650,fb:55,mix:40}],['delay','Ducked Delay',{time:980,fb:45,mix:30}],['verb','Glitz',{decay:8,pre:60,mix:55}]],
+  [['vol','Volume Pedal',{pos:60}],['dyn','LA Studio Comp',{pr:7}],['amp','US Double Nrm',{drive:2.5}],['mod','Script Mod Phase',{speed:0.4,depth:6}],['delay','Adriatic Delay',{time:650,fb:55,mix:40}],['delay','Ducked Delay',{time:980,fb:45,mix:30}],['verb','Glitz',{decay:8,pre:60,mix:55}]],
   [['dyn','Noise Gate',{thr:-45,ratio:10}],['drive','Kinky Boost',{drive:3,level:7.5}],['amp','Brit Plexi Nrm',{drive:7,bass:5,mid:6,treble:6}],['eq','Low/High Cut'],['delay','Simple Delay',{time:300,fb:20,mix:15}],['verb','Room',{decay:1.2,mix:20}]],
   [['dyn','Noise Gate',{thr:-42,ratio:10}],['drive','Teemah!',{drive:7.5,tone:6}],['amp','Brit Plexi Nrm',{drive:8,mid:7.5,treble:6.5}],['eq','Parametric'],['delay','Transistor Tape',{time:450,fb:40,mix:28}],['verb','Hall',{decay:3.8,mix:30}],['vol','Gain',{pos:85}]],
   [['dyn','Red Squeeze',{thr:-26,ratio:3}],['amp','Acoustic Sim',{drive:1,bass:4.5,treble:6}],['eq','Parametric'],['verb','Plateaux',{decay:2.2,mix:22}]],
-  [['dyn','LA Studio Comp',{thr:-22,ratio:2.5}],['amp','US Double Nrm',{drive:2,bass:6,treble:4}],['eq','Simple EQ'],['verb','Room',{decay:1.6,mix:18}]],
+  [['dyn','LA Studio Comp',{pr:5}],['amp','US Double Nrm',{drive:2,bass:6,treble:4}],['eq','Simple EQ'],['verb','Room',{decay:1.6,mix:18}]],
   [['amp','Acoustic Sim',{drive:0.5}],['eq','Low/High Cut']],
   []
 ];
 function buildPreset(def){
-  const chain = def.map(([cat,model,over]) => { const b = makeBlock(cat, model); if (over && b.p) Object.assign(b.p, over); return b; });
+  const offAll = [];
+  const chain = def.map(([cat,model,over]) => {
+    const b = makeBlock(cat, model); over = Object.assign({}, over);
+    if (over._off) offAll.push(b.uid); delete over._off;
+    if (over.bands) { b.bands = over.bands; delete over.bands; }
+    if (over.cut) { b.cut = over.cut; delete over.cut; }
+    if (b.p) Object.assign(b.p, over);
+    return b;
+  });
   // 스냅샷별 꺼진 블록: 벌스 = 드라이브·모듈레이션 끔, 코러스 = 모듈레이션 끔, 솔로 = 전부 켬
   const off = [{},{},{}];
   chain.forEach(b => { if (b.cat === 'drive' || b.cat === 'mod') off[0][b.uid] = true; if (b.cat === 'mod') off[1][b.uid] = true; });
+  offAll.forEach(u => off.forEach(m => { m[u] = true; }));
   return { chain, off };
 }
-const PRE = PRESET_DEFS.map(buildPreset);
+const PRESET_TEMPO = [92,72,96,70,110,120,84,100,120,120];
+const PRE = PRESET_DEFS.map((d,i) => Object.assign(buildPreset(d), { bpm: PRESET_TEMPO[i] || 120 }));
 
 const S = {
   screen:'main', preset:0, snap:1, allowEdit:true, bpm:92, taps:[],
@@ -369,9 +400,9 @@ const S = {
   blockUid:null, band:1
 };
 function loadPreset(i){
-  PRE[S.preset] = { chain: S.chain, off: S.off };   // 바꾼 값은 프리셋마다 기억
+  PRE[S.preset] = { chain: S.chain, off: S.off, bpm: S.bpm };   // 바꾼 값은 프리셋마다 기억
   S.preset = (i + PRESETS.length) % PRESETS.length;
-  S.chain = PRE[S.preset].chain; S.off = PRE[S.preset].off;
+  S.chain = PRE[S.preset].chain; S.off = PRE[S.preset].off; S.bpm = PRE[S.preset].bpm;
 }
 
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -386,7 +417,9 @@ const GLYPH = {
   mod:   '<path d="M3 12c1.5-5 4.5-5 6 0s4.5 5 6 0 4.5-5 6 0"/>',
   delay: '<circle cx="6" cy="12" r="3" class="f"/><circle cx="13" cy="12" r="2.2" class="f" opacity=".65"/><circle cx="19" cy="12" r="1.5" class="f" opacity=".35"/>',
   verb:  '<path d="M3.5 18a8.5 8.5 0 0 1 17 0M7.5 18a4.5 4.5 0 0 1 9 0"/><circle cx="12" cy="18" r="1.3" class="f"/>',
-  vol:   '<path d="M4 18L20 6v12z"/>'
+  vol:   '<path d="M4 18L20 6v12z"/>',
+  pre:   '<path d="M8 20V10a4 4 0 0 1 8 0v10z"/><path d="M10.5 15.5l1.5-3 1.5 3M7 20h10"/>',
+  ir:    '<path d="M3 17h4l2-12 2.2 12 1.8-6 1.6 6 1.4-3 1.2 3H21"/>'
 };
 function icon(cat, off, size){
   size = size || 32;
@@ -576,11 +609,15 @@ function vBlock(){
       ${paramRow('eqf','주파수',fmtF(band.f),Math.round(f2s(band.f)*1000),c.color)}
       ${paramRow('eqg','게인',fmtG(band.g),Math.round((band.g+12)/24*1000),c.color)}
       ${paramRow('eqq','Q (폭)',band.q.toFixed(2),Math.round(Math.log(band.q/0.2)/Math.log(20)*1000),c.color)}
+    </div>
+    <div class="params" style="background:var(--card);border-radius:22px;padding:18px">
+      ${paramRow('p-lc','Low Cut',fmtVal(CUT_LC,b.cut.lc),Math.round(norm(CUT_LC,b.cut.lc)*1000),c.color)}
+      ${paramRow('p-hc','High Cut',fmtVal(CUT_HC,b.cut.hc),Math.round(norm(CUT_HC,b.cut.hc)*1000),c.color)}
     </div>`;
   }
   return head + tip('block') + graph + `
   <div class="params" style="background:var(--card);border-radius:22px;padding:18px">
-    ${defsOf(b.cat).map(d=>paramRow('p-'+d.k,d.label,fmtVal(d,b.p[d.k]),Math.round(norm(d,b.p[d.k])*1000),c.color)).join('')}
+    ${defsFor(b).map(d=>paramRow('p-'+d.k,d.label,fmtVal(d,b.p[d.k]),Math.round(norm(d,b.p[d.k])*1000),c.color)).join('')}
   </div>`;
 }
 function paramRow(id,label,val,v,color){
@@ -639,6 +676,7 @@ const yg = y => ((GT+GB)/2 - y)/((GB-GT)/2)*GMAX;
 const cl = (v,a,b) => Math.max(a, Math.min(b, v));
 const fmtF = f => f >= 1000 ? (f/1000).toFixed(f>=10000?1:2).replace(/\.?0+$/,'') + ' kHz' : Math.round(f) + ' Hz';
 const fmtG = g => (g>0?'+':g<0?'−':'') + Math.abs(g).toFixed(1) + ' dB';
+const cutDb = (f,lc,hc) => (lc > 20.5 ? -10*Math.log10(1+Math.pow(lc/f,4)) : 0) + (hc < 19999 ? -10*Math.log10(1+Math.pow(f/hc,4)) : 0);
 const peak = (f,fc,g,q) => { const o = Math.log2(f/fc), w = 0.9/q; return g*Math.exp(-0.5*(o/w)*(o/w)); };
 const shelfLo = (f,fc,g) => g/(1+Math.pow(f/fc,2));
 const shelfHi = (f,fc,g) => g/(1+Math.pow(fc/f,2));
@@ -651,13 +689,22 @@ function curvePath(fn){ let d=''; for (let i=0;i<=160;i++){ const x = GL + i/160
 
 const GRAPH = {
   eq(b, col){
-    const fn = f => b.bands.reduce((s,bd)=>s+peak(f,bd.f,bd.g,bd.q),0), d = curvePath(fn);
-    return { cap:'번호 점 = 밴드 · 좌우 주파수, 위아래 양',
+    const cut = b.cut || {lc:20,hc:20000};
+    const fn = f => b.bands.reduce((s,bd)=>s+peak(f,bd.f,bd.g,bd.q),0) + cutDb(f,cut.lc,cut.hc), d = curvePath(fn);
+    return { cap:'번호 점 = 밴드 · 좌우 주파수, 위아래 양' + (cut.hc < 19999 || cut.lc > 20.5 ? ' · 양끝은 컷' : ''),
       body: freqGrid() + `<path d="${d}L${GR},${GB}L${GL},${GB}Z" fill="${col}" fill-opacity=".1"/><path d="${d}" fill="none" stroke="${col}" stroke-width="2.5" stroke-linejoin="round"/>`,
       handles: b.bands.map((bd,i)=>({ x:fx(bd.f), y:gy(bd.g), num:i+1, sel:i===S.band, band:i,
         apply:(x,y)=>{ bd.f = Math.round(cl(xf(x),FMIN,FMAX)); bd.g = Math.round(cl(yg(y),-GMAX,GMAX)*10)/10; } })) };
   },
   dyn(b, col){
+    if (b.p.pr !== undefined) {   // LA Studio Comp: Peak Reduction이 클수록 기준점이 내려가요
+      const p = b.p, thr = -p.pr*4, ratio = 4, X = d => GL + (d+60)/60*(GR-GL), Y = d => GB - (d+60)/60*(GB-GT);
+      let d=''; for (let i=-60;i<=0;i++){ const o = i < thr ? i : thr + (i-thr)/ratio; d += (i===-60?'M':'L')+X(i).toFixed(1)+','+Y(o).toFixed(1); }
+      return { cap:`Peak Reduction ${p.pr.toFixed(1)} · 기준점이 내려갈수록 많이 눌려요`,
+        body: axes() + `<line x1="${X(-60)}" y1="${Y(-60)}" x2="${X(0)}" y2="${Y(0)}" stroke="#33373F" stroke-dasharray="3 5"/>`
+          + `<rect x="${X(thr)}" y="${GT}" width="${GR-X(thr)}" height="${GB-GT}" fill="${col}" fill-opacity=".06"/><path d="${d}" fill="none" stroke="${col}" stroke-width="2.5"/>` + T((GL+GR)/2,GB+16,'들어오는 소리'),
+        handles: [ { x:X(thr), y:Y(thr), tag:'Peak Reduction', apply:(x)=>{ const db = (x-GL)/(GR-GL)*60-60; p.pr = Math.round(cl(-db/4,0,10)*10)/10; } } ] };
+    }
     const p = b.p, X = d => GL + (d+60)/60*(GR-GL), Y = d => GB - (d+60)/60*(GB-GT);
     let d=''; for (let i=-60;i<=0;i++){ const o = i < p.thr ? i : p.thr + (i-p.thr)/p.ratio; d += (i===-60?'M':'L')+X(i).toFixed(1)+','+Y(o).toFixed(1); }
     const outTop = p.thr + (0-p.thr)/p.ratio;
@@ -727,6 +774,15 @@ const GRAPH = {
         { x:X(pre + p.decay/3), y:GB-(GB-GT)*mix*Math.exp(-2.3), tag:'길이', geom, apply:(x,y,g)=>{ const sec = (x-GL)/(GR-GL)*g.span - p.pre/1000; p.decay = clampTo(defOf('verb','decay'), sec*3); } }
       ] };
   },
+  pre(b, col){ return GRAPH._cuts(b, col, `Gain ${b.p.gain.toFixed(1)} · 양끝 점 = Low/High Cut`); },
+  ir(b, col){ return GRAPH._cuts(b, col, (b.p.irs < 0.5 ? 'IR 없음' : `IR ${Math.round(b.p.irs)}번 칸`) + ` · Mix ${Math.round(b.p.mix)}% · 양끝 점 = Low/High Cut`); },
+  _cuts(b, col, cap){
+    const p = b.p, d = curvePath(f => cutDb(f, p.lc, p.hc)), dl = defFor(b,'lc'), dh = defFor(b,'hc');
+    return { cap,
+      body: freqGrid() + `<path d="${d}L${GR},${GB}L${GL},${GB}Z" fill="${col}" fill-opacity=".1"/><path d="${d}" fill="none" stroke="${col}" stroke-width="2.5"/>`,
+      handles: [ { x:fx(Math.max(p.lc,22)), y:gy(-3), tag:'Low Cut', below:true, apply:(x)=>{ p.lc = clampTo(dl, xf(x)); } },
+                 { x:fx(Math.min(p.hc,19000)), y:gy(-3), tag:'High Cut', below:true, apply:(x)=>{ p.hc = clampTo(dh, xf(x)); } } ] };
+  },
   vol(b, col){
     const p = b.p, y = (GT+GB)/2, w = (GR-GL)*p.pos/100;
     return { cap:'막대 끝을 좌우로 끌어서 조절',
@@ -741,7 +797,7 @@ function drawGraph(){
   const svg = document.getElementById('bg'); if (!svg) return;
   const b = curBlock(); if (!b || !GRAPH[b.cat]) return;
   const off = !!S.off[S.snap][b.uid], col = off ? '#6B717C' : CATS[b.cat].color;
-  const g = GRAPH[b.cat](b, col, drag && drag.geom);
+  const g = GRAPH[b.cat](b, col, drag && drag.geom);  // _cuts는 pre·ir가 함께 쓰는 그림
   handles = g.handles;
   const hs = handles.map((h,i) => {
     const act = (drag && drag.i === i) || h.sel;
@@ -749,7 +805,7 @@ function drawGraph(){
     if (h.num) return `${pulse}<circle cx="${h.x}" cy="${h.y}" r="${act?13:11}" fill="${act?col:'#15171B'}" stroke="${act?'#0C0D0F':col}" stroke-width="${act?3:2}"/>`
       + `<text x="${h.x}" y="${h.y+4}" text-anchor="middle" font-size="11" font-weight="700" font-family="Space Grotesk" fill="${act?'#0C0D0F':'#F3F4F6'}" pointer-events="none">${h.num}</text>`;
     return `<circle cx="${h.x}" cy="${h.y}" r="${act?15:12}" fill="${col}" fill-opacity=".25"/><circle cx="${h.x}" cy="${h.y}" r="7" fill="#0C0D0F" stroke="${col}" stroke-width="2.5"/>`
-      + (h.tag ? T(cl(h.x, GL+26, GR-26), h.y < GT+24 ? h.y+26 : h.y-18, h.tag, 'middle', '#C9CED6') : '');
+      + (h.tag ? T(cl(h.x, GL+26, GR-26), (h.below || h.y < GT+24) ? h.y+26 : h.y-18, h.tag, 'middle', '#C9CED6') : '');
   }).join('');
   svg.innerHTML = g.body + hs;
   const cap = document.getElementById('gcap'); if (cap) cap.textContent = g.cap || '';
@@ -757,8 +813,9 @@ function drawGraph(){
 function syncInputs(){
   const b = curBlock(); if (!b) return;
   const set = (id, v, txt) => { const el = document.getElementById(id); if (el) el.value = v; const t = document.getElementById(id+'-v'); if (t) t.textContent = txt; };
+  if (b.bands && b.cut) { set('p-lc', Math.round(norm(CUT_LC,b.cut.lc)*1000), fmtVal(CUT_LC,b.cut.lc)); set('p-hc', Math.round(norm(CUT_HC,b.cut.hc)*1000), fmtVal(CUT_HC,b.cut.hc)); }
   if (b.bands) { const bd = b.bands[S.band]; set('eqf', Math.round(f2s(bd.f)*1000), fmtF(bd.f)); set('eqg', Math.round((bd.g+12)/24*1000), fmtG(bd.g)); set('eqq', Math.round(Math.log(bd.q/0.2)/Math.log(20)*1000), bd.q.toFixed(2)); }
-  else defsOf(b.cat).forEach(d => set('p-'+d.k, Math.round(norm(d,b.p[d.k])*1000), fmtVal(d,b.p[d.k])));
+  else defsFor(b).forEach(d => set('p-'+d.k, Math.round(norm(d,b.p[d.k])*1000), fmtVal(d,b.p[d.k])));
 }
 function svgPoint(svg, e){ const r = svg.getBoundingClientRect(); return [ (e.clientX-r.left)/r.width*GW, (e.clientY-r.top)/r.height*GH ]; }
 root.addEventListener('pointerdown', e => {
@@ -829,13 +886,15 @@ root.addEventListener('input', e => {
   const el = e.target; if (el.type !== 'range') return;
   const b = curBlock(); if (!b) return;
   const out = document.getElementById(el.id + '-v'), n = el.value/1000;
-  if (b.bands) {
+  if (b.bands && (el.id === 'p-lc' || el.id === 'p-hc')) {
+    const d = el.id === 'p-lc' ? CUT_LC : CUT_HC; b.cut[d.k] = denorm(d, n); out.textContent = fmtVal(d, b.cut[d.k]);
+  } else if (b.bands) {
     const bd = b.bands[S.band];
     if (el.id === 'eqf') { bd.f = Math.round(s2f(n)); out.textContent = fmtF(bd.f); }
     if (el.id === 'eqg') { bd.g = Math.round((n*24-12)*10)/10; out.textContent = fmtG(bd.g); }
     if (el.id === 'eqq') { bd.q = Math.round(0.2*Math.pow(20,n)*100)/100; out.textContent = bd.q.toFixed(2); }
   } else {
-    const d = defOf(b.cat, el.id.slice(2)); b.p[d.k] = denorm(d, n); out.textContent = fmtVal(d, b.p[d.k]);
+    const d = defFor(b, el.id.slice(2)); b.p[d.k] = denorm(d, n); out.textContent = fmtVal(d, b.p[d.k]);
   }
   drawGraph();
 });
