@@ -422,7 +422,7 @@ document.getElementById('midi').addEventListener('click', async () => {
 const root = document.getElementById('iface');
 const toastEl = document.getElementById('toast');
 const MAX_BLOCKS = 8;
-const APP_VER = 'v12';
+const APP_VER = 'v13';
 
 const CATS = {
   dyn:   { name:'다이내믹',  color:'#7AA7FF', dsp:6,  models:['Deluxe Comp','LA Studio Comp','Red Squeeze','Noise Gate'] },
@@ -1009,7 +1009,10 @@ function metHtml(){
 function vMain(){
   const R = RTA, linked = MET.idx >= 0 && SONGS[MET.idx] && SONGS[MET.idx].bpm === S.bpm;
   const pop = S.menu === 'speed' ? `<div class="pop" style="left:40px">${Object.keys(SPEED_N).map(k=>`<button class="${R.speed===k?'on':''}" data-act="rtaSpeed" data-v="${k}">${SPEED_N[k]}</button>`).join('')}</div>`
-            : S.menu === 'src' ? `<div class="pop" style="left:128px">${Object.keys(SRC_N).map(k=>`<button class="${R.src===k?'on':''}" data-act="rtaSrc" data-v="${k}">${SRC_N[k]}</button>`).join('')}</div>` : '';
+            : S.menu === 'src' ? `<div class="pop" style="left:100px;max-width:250px">
+                <button class="${R.src==='off'?'on':''}" data-act="rtaSrc" data-v="off">입력 꺼짐</button>
+                ${(R.devs && R.devs.length) ? R.devs.map((d,i)=>`<button class="${R.src==='mic' && (R.devId ? R.devId===d.deviceId : d.label===R.devLabel)?'on':''}" data-act="rtaSrc" data-v="mic" data-id="${esc(d.deviceId)}" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(devShort(d.label || '입력 ' + (i+1)))}</button>`).join('') : `<button class="${R.src==='mic'?'on':''}" data-act="rtaSrc" data-v="mic">마이크</button>`}
+                <button class="${R.src==='demo'?'on':''}" data-act="rtaSrc" data-v="demo">연습 소리</button></div>` : '';
   return `
   <div class="mtop">
     <span class="mode"><i></i>연습 모드 · ${APP_VER}</span>
@@ -1030,7 +1033,7 @@ function vMain(){
   <div class="rta">
     <div class="rhd"><span class="cap6" style="color:var(--fg);margin-right:2px">RTA</span>
       <button class="t2" data-act="menu" data-v="speed">반응 ${SPEED_N[R.speed]} ▾</button>
-      <button class="t2" data-act="menu" data-v="src">${SRC_N[R.src]} ▾</button>
+      <button class="t2" data-act="menu" data-v="src" style="max-width:150px;overflow:hidden;text-overflow:ellipsis">${R.src === 'mic' && R.devLabel ? esc(devShort(R.devLabel)) : SRC_N[R.src]} ▾</button>
       <span class="live ${R.src==='off'?'idle':''}"><i></i>${R.src==='off'?'OFF':'LIVE'}</span></div>
     <canvas id="rtaCv" style="height:220px" role="img" aria-label="주파수 그래프: 하늘색 = 내 소리, 회색 점선 = 최고점, 초록 = 지금 EQ"></canvas>
     ${R.src === 'off' ? `<div class="rta-off"><button data-act="rtaSrc" data-v="mic">마이크 켜기</button><button class="g" data-act="rtaSrc" data-v="demo">연습 소리</button></div>` : ''}
@@ -1135,6 +1138,8 @@ function metStop(){
 }
 document.addEventListener('visibilitychange', () => { if (!document.hidden && MET.on) wakeOn(); });
 
+root.addEventListener('pointerdown', () => { try { if (RTA.ctx && RTA.ctx.state === 'suspended') RTA.ctx.resume(); } catch(e) {} }, true);
+const devShort = l => { if (!l) return '마이크'; const u = /usb|stomp|line ?6|helix/i.test(l); let t = l.replace(/\(.*?\)/g, '').trim(); if (t.length > 16) t = t.slice(0, 15) + '…'; return (u ? 'USB · ' : '') + t; };
 /* ---------- 길게 누르기 ---------- */
 let lp = null, lpFired = false;
 root.addEventListener('pointerdown', e => {
@@ -1398,23 +1403,35 @@ async function rtaStart(){
   if (!document.getElementById('rtaCv')) return;
   try {
     if (!RTA.ctx) RTA.ctx = new (window.AudioContext || window.webkitAudioContext)();
-    if (RTA.ctx.state === 'suspended') await RTA.ctx.resume();
+    if (RTA.ctx.state === 'suspended') RTA.ctx.resume().catch(() => {});   // 기다리지 않음: 첫 터치 때 풀려요
     if (!RTA.an) {
       RTA.an = RTA.ctx.createAnalyser(); RTA.an.fftSize = 16384;
       RTA.buf = new Float32Array(RTA.an.frequencyBinCount); RTA.time = new Float32Array(RTA.an.fftSize);
       RTA.out = RTA.ctx.createGain(); RTA.out.gain.value = 0; RTA.out.connect(RTA.ctx.destination);
     }
     RTA.an.smoothingTimeConstant = SPEED[RTA.speed];
-    if (!RTA.node && RTA.src !== 'off') await rtaConnect();
+    if (!RTA.node && RTA.src !== 'off' && !RTA.busy) await rtaConnect();
   } catch (e) { RTA.err = e && e.name === 'NotAllowedError' ? '마이크 사용을 허용해 주세요' : '소리를 열 수 없어요'; }
   if (!RTA.raf) RTA.raf = requestAnimationFrame(rtaLoop);
 }
 async function rtaConnect(){
+  RTA.busy = true;
+  try { await rtaConnect2(); } finally { RTA.busy = false; }
+}
+async function rtaConnect2(){
   rtaDisconnect();
+  if (!RTA.ctx || !RTA.an) { RTA.busy = false; await rtaStart(); RTA.busy = true; }
   const ctx = RTA.ctx; RTA.hold = null; RTA.err = '';
+  if (ctx.state === 'suspended') ctx.resume().catch(() => {});
   if (RTA.src === 'off') return;
   if (RTA.src === 'mic') {
-    RTA.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation:false, noiseSuppression:false, autoGainControl:false } });
+    const a = { echoCancellation:false, noiseSuppression:false, autoGainControl:false, channelCount:{ ideal:2 } };
+    if (RTA.devId) a.deviceId = { exact: RTA.devId };
+    RTA.stream = await navigator.mediaDevices.getUserMedia({ audio: a });
+    const tr = RTA.stream.getAudioTracks()[0];
+    RTA.devLabel = (tr && tr.label) || '';
+    try { RTA.devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'audioinput' && d.deviceId !== 'default' && d.deviceId !== 'communications'); } catch(e) {}
+    if (RTA.src !== 'mic') { rtaDisconnect(); return; }
     RTA.node = ctx.createMediaStreamSource(RTA.stream);
     RTA.node.connect(RTA.an);
   } else {
@@ -1541,6 +1558,8 @@ function rtaLoop(ts){
     g.fillStyle = '#15181C'; g.strokeStyle = '#30353D'; g.beginPath(); g.roundRect ? g.roundRect(bx, by, bw, bh, 5) : g.rect(bx, by, bw, bh); g.fill(); g.stroke();
     g.textAlign = 'left'; lines.forEach(([txt, c], j) => { g.fillStyle = c; g.fillText(txt, bx+7, by+15+j*13); });
   }
+  if (live && RTA.src === 'mic' && !RTA.err) { RTA.quiet = peakDb < -80 ? (RTA.quiet || performance.now()) : 0;
+    if (RTA.quiet && performance.now() - RTA.quiet > 2500) { g.fillStyle = '#9BA1AC'; g.textAlign = 'center'; g.font = '500 12px Inter, "Noto Sans KR", sans-serif'; g.fillText('신호가 거의 없어요 · 입력 메뉴에서 장치를 바꿔 보세요', (L+R)/2, (T+B)/2); } }
   if (RTA.err) { g.fillStyle = '#FF8A7E'; g.textAlign = 'center'; g.font = '13px "Noto Sans KR", sans-serif'; g.fillText(RTA.err, (L+R)/2, mid); }
   if (!RTA.paused) rtaReadout(spec, hz, peakDb, rmsDb, pk, fPeak);
 }
@@ -1689,7 +1708,10 @@ const ACT = {
   },
   allowEdit: () => { S.allowEdit = !S.allowEdit; render(); },
   rtaSrc: async t => {
-    const v = t.dataset.v; if (v === RTA.src) { S.menu = null; render(); return; }
+    const v = t.dataset.v, id = t.dataset.id;
+    if (v === RTA.src && (v !== 'mic' || id === undefined || id === RTA.devId)) { S.menu = null; render(); return; }
+    if (id !== undefined) RTA.devId = id || null;
+    if (RTA.ctx && RTA.ctx.state === 'suspended') RTA.ctx.resume();
     S.menu = null; RTA.src = v; render();
     try { await rtaConnect(); render(); } catch (e) { RTA.err = (e && e.name === 'NotAllowedError') ? '마이크 사용을 허용해 주세요' : '마이크를 열 수 없어요'; toast(RTA.err); }
   },
