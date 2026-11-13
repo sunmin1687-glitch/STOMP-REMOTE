@@ -422,7 +422,7 @@ document.getElementById('midi').addEventListener('click', async () => {
 const root = document.getElementById('iface');
 const toastEl = document.getElementById('toast');
 const MAX_BLOCKS = 8;
-const APP_VER = 'v11';
+const APP_VER = 'v12';
 
 const CATS = {
   dyn:   { name:'다이내믹',  color:'#7AA7FF', dsp:6,  models:['Deluxe Comp','LA Studio Comp','Red Squeeze','Noise Gate'] },
@@ -541,7 +541,7 @@ function loadPreset(i){
   S.preset = (i + PRESETS.length) % PRESETS.length;
   S.chain = PRE[S.preset].chain; S.off = PRE[S.preset].off; S.bpm = PRE[S.preset].bpm;
   if (PRE[S.preset].snap !== undefined) S.snap = PRE[S.preset].snap;
-  if (num(PRE[S.preset].vol)) S.vol = Math.max(-40, Math.min(6, Math.round(PRE[S.preset].vol*2)/2));
+  if (num(PRE[S.preset].vol)) S.vol = Math.max(-40, Math.min(6, Math.round(PRE[S.preset].vol*10)/10));
 }
 
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -554,15 +554,16 @@ let LIB = null;   // 불러온 파일 정보 { files, count, at }
 const MODEL_CAT = [
   [/^HD2_ImpulseResponse/,'ir'], [/^HD2_Cab/,'cab'], [/^HD2_Preamp/,'pre'], [/^HD2_Amp/,'amp'],
   [/^HD2_(Dist|Fuzz|Drive)/,'drive'], [/^HD2_(Compressor|Gate|Dynamic)/,'dyn'], [/^HD2_EQ/,'eq'],
-  [/^HD2_(Chorus|Flanger|Phaser|Tremolo|Rotary|Mod|Vibe|Vibrato|AM|Ring)/,'mod'], [/^HD2_Delay/,'delay'], [/^HD2_Reverb/,'verb'],
+  [/^HD2_(Chorus|Flanger|Phaser|Tremolo|Rotary|Mod|Vibe|Vibrato|AM|Ring)/,'mod'], [/^HD2_Delay/,'delay'], [/^(HD2_Reverb|VIC_)/,'verb'],
   [/^HD2_(Vol|Gain|Pan)/,'vol'], [/^HD2_(Wah|Filter)/,'filter'], [/^HD2_(Pitch|Synth|Poly)/,'pitch'],
   [/^HD2_(Looper|FXLoop|Send|Return|Loop)/,'loop']
 ];
 const STRIP_PREFIX = /^(ImpulseResponse|Cab|Preamp|Amp|Dist|Fuzz|Drive|Compressor|Gate|Dynamic|EQ|Chorus|Flanger|Phaser|Tremolo|Rotary|Mod|Delay|Reverb|VolPan|Vol|Wah|Filter|Pitch|Synth|Looper|FXLoop)/;
 function modelName(id){
+  if (/^VIC_/.test(id)) return String(id).replace(/^VIC_Dyn/, 'Dynamic ').replace(/^VIC_/, '').replace(/([a-z])([A-Z])/g, '$1 $2').trim();
   let s = String(id || '').replace(/^HD2_/, '');
   const m = s.match(STRIP_PREFIX), rest = s.replace(STRIP_PREFIX, '');
-  if (rest.length >= 2) s = /^\d/.test(rest) ? (m[1] === 'ImpulseResponse' ? 'IR' : m[1]) + rest : rest;
+  if (rest.length >= 2) s = /^\d/.test(rest) ? (m[1] === 'ImpulseResponse' ? 'IR ' : m[1] + ' ') + rest : rest;
   return s.replace(/([a-z])([A-Z0-9])/g, '$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2').replace(/([0-9])([A-Za-z])/g, '$1 $2').trim() || String(id);
 }
 const catOf = id => { for (const [re, c] of MODEL_CAT) if (re.test(id)) return c; return 'loop'; };
@@ -632,22 +633,37 @@ async function parseFile(file){
   const base = file.name.replace(/\.[^.]+$/, '');
   return list.map((p, i) => tonePreset(p, list.length === 1 ? base : base + ' ' + (i+1)));
 }
-function applyLib(items){
+const SLOTS = 126, EMPTY = () => ({ chain:[], off:[{},{},{}], bpm:120, empty:true });
+const filled = () => PRESETS.map((n,i) => i).filter(i => !(PRE[i] && PRE[i].empty));
+function setLib(slots){   // slots: { 칸번호: {name, pre} }
   PRESETS.length = 0; PRE.length = 0;
-  items.forEach(it => { PRESETS.push(it.name); PRE.push(it.pre); });
-  S.preset = 0; S.chain = PRE[0].chain; S.off = PRE[0].off; S.bpm = PRE[0].bpm;
-  S.snap = PRE[0].snap || 0; if (num(PRE[0].vol)) S.vol = Math.max(-40, Math.min(6, Math.round(PRE[0].vol*2)/2));
-  try { SONGS.forEach(s => { if (s.preset >= PRESETS.length) s.preset = -1; }); } catch(e) {}   // 처음 열 때는 곡 목록이 아직 없음
+  for (let i = 0; i < SLOTS; i++) { const it = slots[i]; PRESETS.push(it ? it.name : ''); PRE.push(it ? it.pre : EMPTY()); }
+  try { SONGS.forEach(s => { if (s.preset >= 0 && PRE[s.preset] && PRE[s.preset].empty) s.preset = -1; }); } catch(e) {}   // 처음 열 때는 곡 목록이 아직 없음
 }
+function showSlot(i){
+  S.preset = i; const p = PRE[i];
+  S.chain = p.chain; S.off = p.off; S.bpm = p.bpm; S.snap = p.snap || 0;
+  if (num(p.vol)) S.vol = Math.max(-40, Math.min(6, Math.round(p.vol*10)/10));
+}
+const slotOf = name => { const m = String(name).match(/(?:^|[^0-9])([0-4]?\d)\s*([ABCabc])(?![a-z])/); if (!m) return -1; const n = +m[1]; return n >= 1 && n <= 42 ? (n-1)*3 + 'ABC'.indexOf(m[2].toUpperCase()) : -1; };
 async function importFiles(files){
   files = [...files].sort((a, b) => a.name.localeCompare(b.name, 'ko', { numeric:true }));
-  const items = [], bad = [];
-  for (const f of files) { try { items.push(...await parseFile(f)); } catch(e) { bad.push(e.message); } }
-  if (!items.length) { toast(bad[0] || '불러올 프리셋이 없어요'); return; }
-  applyLib(items);
-  LIB = { files: files.length, count: items.length, at: Date.now(), first: files[0].name };
-  try { localStorage.setItem(LIB_KEY, JSON.stringify({ lib: LIB, items })); } catch(e) { toast('저장 공간이 부족해서 이번만 보여요'); }
-  toast(`${items.length}개 프리셋을 불러왔어요` + (bad.length ? ` · ${bad.length}개 파일은 못 읽음` : ''));
+  const cur = {}; if (LIB) PRE.forEach((p, i) => { if (!p.empty) cur[i] = { name: PRESETS[i], pre: p }; });
+  let at = S.impAt || 0, first = -1, n = 0; const bad = [];
+  for (const f of files) {
+    let items; try { items = await parseFile(f); } catch(e) { bad.push(e.message); continue; }
+    const set = /\.hls$/i.test(f.name) || items.length > 1;
+    items.forEach((it, k) => {
+      const fixed = set ? k : slotOf(f.name);
+      const i = fixed >= 0 ? fixed : at; if (i >= SLOTS) return;
+      cur[i] = it; n++; if (first < 0) first = i; if (fixed < 0) at = i + 1;
+    });
+  }
+  if (!n) { toast(bad[0] || '불러올 프리셋이 없어요'); return; }
+  setLib(cur); showSlot(first);
+  LIB = { count: Object.keys(cur).length, at: Date.now() };
+  try { localStorage.setItem(LIB_KEY, JSON.stringify({ v:2, lib: LIB, slots: cur })); } catch(e) { toast('저장 공간이 부족해서 이번만 보여요'); }
+  toast(`${n}개 프리셋을 ${PID(first)}부터 넣었어요` + (bad.length ? ` · ${bad.length}개 파일은 못 읽음` : ''));
   go('main');
 }
 function resetLib(){
@@ -658,18 +674,25 @@ function resetLib(){
 }
 (function restoreLib(){
   try {
-    const d = JSON.parse(localStorage.getItem(LIB_KEY) || 'null'); if (!d || !d.items || !d.items.length) return;
-    let mx = 0; d.items.forEach(it => it.pre.chain.forEach(b => { mx = Math.max(mx, b.uid); })); uidSeq = Math.max(uidSeq, mx + 1);
-    LIB = d.lib; applyLib(d.items);
+    const d = JSON.parse(localStorage.getItem(LIB_KEY) || 'null'); if (!d || d.v !== 2 || !d.slots) return;
+    let mx = 0, first = -1; Object.keys(d.slots).forEach(k => { if (first < 0 || +k < first) first = +k; d.slots[k].pre.chain.forEach(b => { mx = Math.max(mx, b.uid); }); });
+    if (first < 0) return;
+    uidSeq = Math.max(uidSeq, mx + 1); LIB = d.lib; setLib(d.slots); showSlot(first);
   } catch(e) {}
 })();
-function fmtRaw(k, v){
+function fmtRaw(k, v, cat){
   if (typeof v === 'boolean') return v ? '켬' : '끔';
   if (!num(v)) return esc(String(v));
-  const kl = k.toLowerCase();
-  if (/(freq|cut)$/.test(kl) || kl === 'freq' || /^(low|high)cut/.test(kl)) return v >= 1000 ? (v/1000).toFixed(v >= 10000 ? 1 : 2).replace(/\.?0+$/,'') + ' kHz' : Math.round(v) + ' Hz';
-  if (/(gain|level|threshold|output|vol)$/.test(kl) && (v < 0 || v > 1)) return (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(1) + ' dB';
-  if (kl === 'mix' && v >= 0 && v <= 1) return Math.round(v*100) + '%';
+  const kl = k.toLowerCase(), r1 = x => (Math.round(x*10)/10).toFixed(1), sg = x => (x > 0 ? '+' : x < 0 ? '−' : '') + r1(Math.abs(x));
+  const hz = x => x >= 1000 ? (Math.round(x/100)/10).toString() + ' kHz' : Math.round(x) + ' Hz';
+  if (kl === 'index') return Math.round(v) + '번';
+  if (/(freq|cut)$/.test(kl) || kl === 'damping') return v >= 10 ? hz(v) : (v*10).toFixed(1);
+  if (kl === 'level' || /.+gain$/.test(kl) || /^(send|drythru|bassboost)$/.test(kl) || kl === 'threshold' || kl === 'gain' && (v < 0 || v > 1)) return sg(v) + ' dB';
+  if (/^(mix|feedback)$/.test(kl) && v >= 0 && v <= 1) return Math.round(v*100) + '%';
+  if (kl === 'predelay') return Math.round(v*1000) + ' ms';
+  if (kl === 'time' && cat === 'delay') return Math.round(v*1000) + ' ms';
+  if (kl === 'decay' && cat === 'verb' && v > 1) return r1(v) + ' s';
+  if (/q$/.test(kl)) return (Math.round(v*100)/100).toString();
   if (Number.isInteger(v)) return String(v);
   if (v >= 0 && v <= 1) return (v*10).toFixed(1);
   return (Math.round(v*100)/100).toString();
@@ -677,7 +700,7 @@ function fmtRaw(k, v){
 function rawParts(b){
   const keys = Object.keys(b.raw || {});
   return `<div style="font-size:12px;color:var(--mute);line-height:1.5">HX Edit 파일에서 읽은 값이에요. 0~1 사이 값은 스톰프 화면처럼 0~10으로 보여 줘요. 여기서는 보기만 할 수 있어요.</div>
-    <div class="dev" style="gap:0;padding:4px 14px">${keys.length ? keys.map(k => `<div class="kv" style="padding:9px 0"><span>${esc(k.replace(/([a-z])([A-Z])/g,'$1 $2'))}</span><span>${fmtRaw(k, b.raw[k])}</span></div>`).join('') : '<div class="kv"><span>조절할 값이 없는 블록</span><span></span></div>'}</div>
+    <div class="dev" style="gap:0;padding:4px 14px">${keys.length ? keys.map(k => `<div class="kv" style="padding:9px 0"><span>${esc(k.replace(/([a-z])([A-Z])/g,'$1 $2'))}</span><span>${fmtRaw(k, b.raw[k], b.cat)}</span></div>`).join('') : '<div class="kv"><span>조절할 값이 없는 블록</span><span></span></div>'}</div>
     <div style="font-size:11px;color:var(--mute)">모델 ID · ${esc(b.id)}</div>`;
 }
 
@@ -921,15 +944,17 @@ function vPresets(){
   <div class="dev">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
       <div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span class="label">HX EDIT 파일</span><span style="font-size:16px;font-weight:700">${LIB ? `${LIB.count}개 프리셋 불러옴` : '예시 데이터 사용 중'}</span>
-      <span style="font-size:12px;color:var(--mute)">${LIB ? esc(LIB.first) + (LIB.files > 1 ? ` 외 ${LIB.files-1}개 파일` : '') : '.hlx(프리셋 1개) · .hls(묶음) 파일을 고르세요'}</span></div>
+      <span style="font-size:12px;color:var(--mute)">${LIB ? '빈 칸은 목록과 ‹ ›에서 건너뛰어요' : '.hlx(프리셋 1개) · .hls(묶음) 파일을 고르세요'}</span></div>
       ${LIB ? '<span class="badge" style="color:var(--acc)"><i style="background:var(--acc)"></i>실제 데이터</span>' : ''}
     </div>
+    <div class="opt"><span style="font-size:13px;color:var(--soft)">.hlx를 넣을 칸</span><select id="impAt">${Array.from({length:SLOTS},(_,i)=>`<option value="${i}" ${(S.impAt||0)===i?'selected':''}>${PID(i)}${LIB && PRE[i] && !PRE[i].empty ? ' · ' + esc(PRESETS[i]) : ''}</option>`).join('')}</select></div>
+    <div style="font-size:12px;color:var(--mute);line-height:1.5;margin-top:-4px">여러 파일을 고르면 이름 순서대로 이 칸부터 차례로 들어가요. 파일 이름에 02A 같은 칸 번호가 있으면 그 칸으로 가요. 이미 불러온 프리셋은 그대로 두고 추가돼요.</div>
     <label class="cta" style="height:48px;font-size:14px;display:flex;align-items:center;justify-content:center;cursor:pointer">파일 불러오기<input type="file" id="impFile" multiple style="display:none"></label>
     ${LIB ? '<button class="cta" data-act="resetLib" style="height:44px;font-size:13px;background:var(--raise);color:var(--fg)">예시 데이터로 되돌리기</button>' : ''}
   </div>
-  <div style="display:flex;justify-content:space-between;align-items:baseline"><span class="label">PRESETS · ${PRESETS.length}</span><span style="font-size:12px;color:var(--mute)">누르면 바로 전환</span></div>
+  <div style="display:flex;justify-content:space-between;align-items:baseline"><span class="label">PRESETS · ${filled().length}</span><span style="font-size:12px;color:var(--mute)">누르면 바로 전환</span></div>
   <div class="plist">
-    ${PRESETS.map((n,i)=>`<button class="${S.preset===i?'on':''}" data-act="pickPreset" data-i="${i}"><span class="pid">${PID(i)}</span><span style="flex:1">${esc(n)}</span>${S.preset===i?'<span class="dot" style="width:6px;height:6px;background:var(--acc)"></span>':''}</button>`).join('')}
+    ${PRESETS.map((n,i)=> PRE[i] && PRE[i].empty ? '' : `<button class="${S.preset===i?'on':''}" data-act="pickPreset" data-i="${i}"><span class="pid">${PID(i)}</span><span style="flex:1">${esc(n)}</span>${S.preset===i?'<span class="dot" style="width:6px;height:6px;background:var(--acc)"></span>':''}</button>`).join('')}
   </div>`;
 }
 
@@ -1041,7 +1066,7 @@ function songSheet(){
     <div class="bpmrow"><button class="pm" data-act="songBpm" data-d="-1" aria-label="BPM 1 내리기">−</button><div class="v"><b id="sBpm">${s.bpm}</b><small>BPM</small></div><button class="pm" data-act="songBpm" data-d="1" aria-label="BPM 1 올리기">+</button><button class="tap2" data-act="songTapTempo">TAP</button></div>
     <div class="opt"><span class="cap6">박자</span>${seg('songSig', Object.keys(SIG_N).map(k=>[k,k]), s.sig)}</div>
     <div class="opt"><span class="cap6">첫 박 강조</span><button class="sw ${s.accent?'on':''}" data-act="songAccent" aria-label="첫 박 강조"></button></div>
-    <div class="opt"><span class="cap6">프리셋 연결</span><select id="songPreset"><option value="-1">연결 안 함</option>${PRESETS.map((n,i)=>`<option value="${i}" ${s.preset===i?'selected':''}>${PID(i)} ${esc(n)}</option>`).join('')}</select></div>
+    <div class="opt"><span class="cap6">프리셋 연결</span><select id="songPreset"><option value="-1">연결 안 함</option>${PRESETS.map((n,i)=> PRE[i] && PRE[i].empty ? '' : `<option value="${i}" ${s.preset===i?'selected':''}>${PID(i)} ${esc(n)}</option>`).join('')}</select></div>
     <div class="opt"><span class="cap6">소리</span>${seg('songSound', [['click','클릭'],['wood','우드'],['none','화면만']], s.sound)}</div>
     <div class="opt"><span class="cap6">블루투스 보정</span><div class="stp"><button data-act="songBt" data-d="-10" aria-label="보정 줄이기">−</button><b id="sBt">${s.bt ? '−' + s.bt + ' ms' : '0 ms'}</b><button data-act="songBt" data-d="10" aria-label="보정 늘리기">+</button></div></div>
     <button class="delbtn" data-act="songDel">이 곡 지우기</button></div>`;
@@ -1098,7 +1123,7 @@ function metStart(i){
   audioCtx();
   MET.on = true; MET.idx = i; MET.sel = i; MET.beat = 0; MET.q = []; MET.vis = -1; MET.next = RTA.ctx.currentTime + 0.1;
   S.bpm = s.bpm;                                   // 스톰프 탭 템포로 같은 BPM (연습 모드라 실제 전송은 없음)
-  if (s.preset >= 0 && s.preset !== S.preset) loadPreset(s.preset);
+  if (s.preset >= 0 && s.preset !== S.preset && PRE[s.preset] && !PRE[s.preset].empty) loadPreset(s.preset);
   clearInterval(MET.timer); MET.timer = setInterval(metSched, 25); metSched();
   if (!MET.raf) MET.raf = requestAnimationFrame(metDraw);
   wakeOn();
@@ -1601,6 +1626,7 @@ root.addEventListener('input', e => {
 
 root.addEventListener('change', e => {
   if (e.target.id === 'impFile' && e.target.files && e.target.files.length) { importFiles(e.target.files); return; }
+  if (e.target.id === 'impAt') { S.impAt = +e.target.value; return; }
   if (e.target.id === 'songPreset') { const s = SONGS[S.songI]; if (s) { s.preset = +e.target.value; saveSongs(); } }
   if (e.target.id === 'songName') render();
 });
@@ -1609,7 +1635,8 @@ const songTaps = [];
 const ACT = {
   go: t => go(t.dataset.to),
   toTest: () => setView('test'),
-  presetStep: t => { loadPreset(S.preset + (+t.dataset.d)); render(); },
+  presetStep: t => { const f = filled(); if (!f.length) return; const k = f.indexOf(S.preset), d = +t.dataset.d;
+    const nx = k < 0 ? f[0] : f[(k + d + f.length) % f.length]; loadPreset(nx); render(); },
   resetLib: () => { resetLib(); toast('예시 데이터로 돌아왔어요'); render(); },
   menu: t => { S.menu = S.menu === t.dataset.v ? null : t.dataset.v; render(); },
   openSheetBlock: t => { S.blockUid = +t.dataset.uid; S.band = 1; S.sheet = 'block'; S.menu = null; window.scrollTo(0,0); render(); },
