@@ -1,7 +1,7 @@
 // Stomp Remote service worker.
 // Network first: when online you always get the newest version from GitHub;
 // the cached copy is only used when the network is unavailable.
-const CACHE = 'stomp-remote-v8';
+const CACHE = 'stomp-remote-v9';
 const CORE = [
   './stomp-remote.html',
   './usb-test.html',
