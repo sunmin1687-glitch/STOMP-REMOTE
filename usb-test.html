@@ -422,7 +422,7 @@ document.getElementById('midi').addEventListener('click', async () => {
 const root = document.getElementById('iface');
 const toastEl = document.getElementById('toast');
 const MAX_BLOCKS = 8;
-const APP_VER = 'v14';
+const APP_VER = 'v13';
 
 const CATS = {
   dyn:   { name:'다이내믹',  color:'#7AA7FF', dsp:6,  models:['Deluxe Comp','LA Studio Comp','Red Squeeze','Noise Gate'] },
@@ -588,8 +588,7 @@ function tonePreset(p, fallbackName){
   const chain = keys.map(k => {
     const s = dsp[k], id = s['@model'], cat = catOf(id), raw = {};
     Object.keys(s).forEach(x => { if (x[0] !== '@') raw[x] = s[x]; });
-    const fsw = tone.footswitch && tone.footswitch.dsp0 && tone.footswitch.dsp0[k];
-    const b = { uid: uidSeq++, cat, model: modelName(id), id, raw, imp: true, key: k, en: s['@enabled'] !== false, fs: fsw && num(fsw['@fs_index']) ? fsw['@fs_index'] : 0 };
+    const b = { uid: uidSeq++, cat, model: modelName(id), id, raw, imp: true, key: k, en: s['@enabled'] !== false };
     if (cat === 'eq') { const e = eqFromRaw(raw); if (e) { b.bands = e.bands; b.cut = e.cut; } }
     return b;
   });
@@ -930,15 +929,11 @@ function vPresets(){
   ${tip('presets')}
   <div class="dev">
     <div style="display:flex;justify-content:space-between;align-items:center">
-      <div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span class="label">DEVICE</span><span style="font-size:18px;font-weight:700">${live() ? esc(MIDI.name) : '연결된 페달 없음'}</span></div>
-      ${live() ? '<span class="badge" style="color:#5BD18A"><i style="background:#5BD18A"></i>실기 연결</span>' : '<span class="badge demo"><i></i>연습 모드</span>'}
+      <div style="display:flex;flex-direction:column;gap:2px"><span class="label">DEVICE</span><span style="font-size:18px;font-weight:700">연결된 페달 없음</span></div>
+      <span class="badge demo"><i></i>연습 모드</span>
     </div>
-    ${live() ? '<button class="cta" data-act="midiOff" style="height:48px;font-size:14px;background:var(--raise);color:var(--fg)">MIDI 연결 끊기 (연습 모드로)</button>'
-             : '<button class="cta" data-act="midiOn" style="height:48px;font-size:14px">HX Stomp MIDI 연결</button>'}
-    ${MIDI.err ? `<div style="font-size:12.5px;color:#FF8A7E">${esc(MIDI.err)}</div>` : ''}
-    <div class="opt"><span style="font-size:13px;color:var(--soft)">MIDI 채널 (스톰프 기본 1)</span><select id="midiCh">${Array.from({length:16},(_,i)=>`<option value="${i+1}" ${MIDI.ch===i+1?'selected':''}>${i+1}</option>`).join('')}</select></div>
-    <div class="kv"><span>보내는 것</span><span>프리셋 · 스냅샷 · 탭 · 튜너 · FS1~5</span></div>
-    <div class="kv"><span>받는 것</span><span>페달에서 바꾼 프리셋·스냅샷</span></div>
+    <div class="kv"><span>상태 읽기</span><span>WebUSB · 대기</span></div>
+    <div class="kv"><span>값 조절</span><span>MIDI · 대기</span></div>
     <div class="kv"><span>앱 버전</span><span>${APP_VER}</span></div>
     <div class="sep">
       <div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:500">체인 편집 허용</span><span style="font-size:12px;color:var(--mute)">켜면 블록 추가·삭제를 페달에 보내요</span></div>
@@ -1020,7 +1015,7 @@ function vMain(){
                 <button class="${R.src==='demo'?'on':''}" data-act="rtaSrc" data-v="demo">연습 소리</button></div>` : '';
   return `
   <div class="mtop">
-    <span class="mode"><i style="${live()?'background:#5BD18A':''}"></i>${live() ? 'HX Stomp 연결됨' : '연습 모드'} · ${APP_VER}</span>
+    <span class="mode"><i></i>연습 모드 · ${APP_VER}</span>
     <button class="tile" data-act="tuner">튜너</button>
     <button class="tile ${linked?'link':''}" data-act="tap" aria-label="탭 템포"><b id="bpm">${S.bpm}</b><small>TAP</small></button>
     <button class="tile sq" data-act="go" data-to="presets" aria-label="설정·연결">${I.set}</button>
@@ -1028,7 +1023,7 @@ function vMain(){
   <div class="mhero">
     <div style="display:flex;flex-direction:column;gap:2px;min-width:0">
       <span class="cap6">PRESET ${PID(S.preset)}</span>
-      <button class="pname" data-act="go" data-to="presets" aria-label="프리셋 목록 열기"><span class="name">${esc(PRESETS[S.preset] || '이름 모름')}</span>${I.caret}</button>
+      <button class="pname" data-act="go" data-to="presets" aria-label="프리셋 목록 열기"><span class="name">${esc(PRESETS[S.preset])}</span>${I.caret}</button>
     </div>
     <div style="display:flex;gap:6px;flex-shrink:0">
       <button class="tile nav" data-act="presetStep" data-d="-1" aria-label="이전 프리셋">${I.back}</button>
@@ -1106,7 +1101,6 @@ function metSched(){
     const lead = (s.bt || 0) / 1000, at = Math.max(ctx.currentTime + 0.005, MET.next - lead);
     if (s.sound !== 'none') metClick(at, MET.beat === 0 && s.accent, s.sound);
     MET.q.push({ t: MET.next, b: MET.beat });
-    if (MET.tapsLeft > 0) { MET.tapsLeft--; tapsAt([MET.next]); }
     MET.beat = (MET.beat + 1) % n; MET.next += spb;
   }
 }
@@ -1132,8 +1126,7 @@ function metStart(i){
   audioCtx();
   MET.on = true; MET.idx = i; MET.sel = i; MET.beat = 0; MET.q = []; MET.vis = -1; MET.next = RTA.ctx.currentTime + 0.1;
   S.bpm = s.bpm;                                   // 스톰프 탭 템포로 같은 BPM (연습 모드라 실제 전송은 없음)
-  if (s.preset >= 0 && s.preset !== S.preset && PRE[s.preset] && !PRE[s.preset].empty) { if (live()) { goSlot(s.preset); sendPC(s.preset); } else loadPreset(s.preset); }
-  MET.tapsLeft = live() ? 4 : 0;
+  if (s.preset >= 0 && s.preset !== S.preset && PRE[s.preset] && !PRE[s.preset].empty) loadPreset(s.preset);
   clearInterval(MET.timer); MET.timer = setInterval(metSched, 25); metSched();
   if (!MET.raf) MET.raf = requestAnimationFrame(metDraw);
   wakeOn();
@@ -1144,60 +1137,6 @@ function metStop(){
   wakeOff();
 }
 document.addEventListener('visibilitychange', () => { if (!document.hidden && MET.on) wakeOn(); });
-
-/* ---------- MIDI 실기 연결 (HX Stomp 공식 MIDI 명령) ---------- */
-// PC 0~125 = 프리셋, CC69 0/1/2 = 스냅샷, CC64 = 탭, CC68 = 튜너, CC49~53 = FS1~5 누름 흉내
-const MIDI = { acc:null, out:null, inp:null, ch:1, on:false, err:'', name:'' };
-try { MIDI.ch = Math.max(1, Math.min(16, +(localStorage.getItem('stompUltra.midiCh') || 1))); } catch(e) {}
-const live = () => !!(MIDI.on && MIDI.out);
-function midiSend(bytes, at){ if (!live()) return false; try { MIDI.out.send(bytes, at); return true; } catch(e) { MIDI.err = String(e.message || e); return false; } }
-const sendPC = n => midiSend([0xC0 | (MIDI.ch-1), n & 127]);
-const sendCC = (cc, v, at) => midiSend([0xB0 | (MIDI.ch-1), cc & 127, v & 127], at);
-function pickPorts(){
-  const want = p => /hx\s*stomp|line ?6|helix/i.test(p.name || '');
-  const outs = [...MIDI.acc.outputs.values()], ins = [...MIDI.acc.inputs.values()];
-  MIDI.out = outs.find(want) || null;
-  const inp = ins.find(want) || null;
-  if (MIDI.inp && MIDI.inp !== inp) MIDI.inp.onmidimessage = null;
-  MIDI.inp = inp; if (inp) inp.onmidimessage = midiIn;
-  MIDI.on = !!MIDI.out; MIDI.name = MIDI.out ? MIDI.out.name : '';
-}
-async function midiConnect(quiet){
-  if (!navigator.requestMIDIAccess) { MIDI.err = '이 브라우저는 MIDI를 지원하지 않아요'; if (!quiet) toast(MIDI.err); return; }
-  try {
-    MIDI.acc = await navigator.requestMIDIAccess({ sysex:false });
-    MIDI.acc.onstatechange = () => { const was = live(); pickPorts(); if (was !== live()) { toast(live() ? 'HX Stomp 연결됨' : 'HX Stomp 연결이 끊겼어요'); render(); } };
-    pickPorts(); MIDI.err = '';
-    try { localStorage.setItem('stompUltra.midiOn', '1'); } catch(e) {}
-    if (!quiet) toast(live() ? 'HX Stomp와 MIDI로 연결됐어요' : 'MIDI는 열렸지만 HX Stomp가 안 보여요. USB 케이블을 확인해 주세요');
-  } catch(e) { MIDI.err = e && e.name === 'SecurityError' || e.name === 'NotAllowedError' ? 'MIDI 사용을 허용해 주세요' : 'MIDI를 열 수 없어요'; if (!quiet) toast(MIDI.err); }
-  render();
-}
-function midiOff(){
-  if (MIDI.inp) MIDI.inp.onmidimessage = null;
-  MIDI.on = false; MIDI.out = null; MIDI.inp = null;
-  try { localStorage.removeItem('stompUltra.midiOn'); } catch(e) {}
-  render();
-}
-function midiIn(e){
-  const [st, d1, d2] = e.data, type = st & 0xF0, ch = (st & 0x0F) + 1;
-  if (ch !== MIDI.ch) return;
-  if (type === 0xC0 && d1 < SLOTS) {               // 페달에서 프리셋을 바꾸면 앱도 따라가요
-    if (d1 !== S.preset) { goSlot(d1); render(); }
-  } else if (type === 0xB0 && d1 === 69 && d2 <= 2) { if (S.snap !== d2) { S.snap = d2; render(); } }
-}
-function goSlot(i){
-  if (PRE.length < SLOTS) { // 예시 데이터일 때도 126칸으로 넓혀서 번호를 맞춰요
-    const cur = {}; PRE.forEach((p, k) => { if (!p.empty) cur[k] = { name: PRESETS[k], pre: p }; }); setLib(cur);
-  }
-  PRE[S.preset] = { ...PRE[S.preset], chain: S.chain, off: S.off, bpm: S.bpm };
-  showSlot(i);
-}
-function fsOf(b){ return b && b.fs >= 1 && b.fs <= 5 ? b.fs : 0; }
-function pressFS(n){ sendCC(48 + n, 127); setTimeout(() => sendCC(48 + n, 0), 60); }
-// 메트로놈 곡 BPM을 페달 탭 템포로: 첫 4박에 맞춰 CC64를 4번 보냄
-function tapsAt(times){ const ctx = RTA.ctx; if (!live() || !ctx) return; times.forEach(t => sendCC(64, 127, performance.now() + Math.max(0, (t - ctx.currentTime) * 1000))); }
-try { if (localStorage.getItem('stompUltra.midiOn') === '1') setTimeout(() => midiConnect(true), 300); } catch(e) {}
 
 root.addEventListener('pointerdown', () => { try { if (RTA.ctx && RTA.ctx.state === 'suspended') RTA.ctx.resume(); } catch(e) {} }, true);
 const devShort = l => { if (!l) return '마이크'; const u = /usb|stomp|line ?6|helix/i.test(l); let t = l.replace(/\(.*?\)/g, '').trim(); if (t.length > 16) t = t.slice(0, 15) + '…'; return (u ? 'USB · ' : '') + t; };
@@ -1707,7 +1646,6 @@ root.addEventListener('input', e => {
 root.addEventListener('change', e => {
   if (e.target.id === 'impFile' && e.target.files && e.target.files.length) { importFiles(e.target.files); return; }
   if (e.target.id === 'impAt') { S.impAt = +e.target.value; return; }
-  if (e.target.id === 'midiCh') { MIDI.ch = +e.target.value; try { localStorage.setItem('stompUltra.midiCh', MIDI.ch); } catch(err) {} return; }
   if (e.target.id === 'songPreset') { const s = SONGS[S.songI]; if (s) { s.preset = +e.target.value; saveSongs(); } }
   if (e.target.id === 'songName') render();
 });
@@ -1716,17 +1654,13 @@ const songTaps = [];
 const ACT = {
   go: t => go(t.dataset.to),
   toTest: () => setView('test'),
-  midiOn: () => midiConnect(false),
-  midiOff: () => { midiOff(); toast('연습 모드로 돌아왔어요'); },
-  presetStep: t => {
-    if (live()) { const n = (S.preset + (+t.dataset.d) + SLOTS) % SLOTS; goSlot(n); sendPC(n); render(); return; }
-    const f = filled(); if (!f.length) return; const k = f.indexOf(S.preset), d = +t.dataset.d;
+  presetStep: t => { const f = filled(); if (!f.length) return; const k = f.indexOf(S.preset), d = +t.dataset.d;
     const nx = k < 0 ? f[0] : f[(k + d + f.length) % f.length]; loadPreset(nx); render(); },
   resetLib: () => { resetLib(); toast('예시 데이터로 돌아왔어요'); render(); },
   menu: t => { S.menu = S.menu === t.dataset.v ? null : t.dataset.v; render(); },
   openSheetBlock: t => { S.blockUid = +t.dataset.uid; S.band = 1; S.sheet = 'block'; S.menu = null; window.scrollTo(0,0); render(); },
   closeSheet: () => { S.sheet = null; render(); },
-  sEdit: () => { if (live()) toast('체인 편집은 앱 화면에만 반영돼요 · 페달에는 HX Edit으로'); if (!S.allowEdit) { toast("설정 화면에서 '체인 편집 허용'을 켜 주세요"); return; } S.draft = clone(S.chain); S.sedit = true; render(); },
+  sEdit: () => { if (!S.allowEdit) { toast("설정 화면에서 '체인 편집 허용'을 켜 주세요"); return; } S.draft = clone(S.chain); S.sedit = true; render(); },
   sCancel: () => { S.draft = null; S.sedit = false; render(); },
   sDone: () => {
     if (dspOf(S.draft) > 100) { toast('DSP가 100%를 넘어요. 블록을 줄여 주세요'); return; }
@@ -1760,18 +1694,13 @@ const ACT = {
     MET.sel = Math.max(0, Math.min(MET.sel > i ? MET.sel-1 : MET.sel, SONGS.length-1));
     S.sheet = null; render();
   },
-  pickPreset: t => { const i = +t.dataset.i; if (live()) { goSlot(i); sendPC(i); } else loadPreset(i); toast(PID(S.preset) + ' ' + (PRESETS[S.preset] || '') + '(으)로 전환' + (live() ? '' : ' · 연습 모드')); go('main'); },
-  snap: t => { S.snap = +t.dataset.i; sendCC(69, S.snap); render(); },
-  toggleBlock: t => {
-    const u = +t.dataset.uid, m = S.off[S.snap], b = S.chain.find(x => x.uid === u);
-    if (live()) { const n = fsOf(b); if (!n) { toast('이 블록은 풋스위치에 없어서 MIDI로 켜고 끌 수 없어요 · HX Edit에서 FS에 배정해 주세요'); return; } pressFS(n); }
-    if (m[u]) delete m[u]; else m[u] = true; render();
-  },
+  pickPreset: t => { loadPreset(+t.dataset.i); toast(PID(S.preset) + ' ' + PRESETS[S.preset] + '(으)로 전환 · 연습 모드'); go('main'); },
+  snap: t => { S.snap = +t.dataset.i; render(); },
+  toggleBlock: t => { const u = +t.dataset.uid, m = S.off[S.snap]; if (m[u]) delete m[u]; else m[u] = true; render(); },
   openBlock: t => { S.blockUid = +t.dataset.uid; S.band = 1; go('block'); },
   band: t => { S.band = +t.dataset.i; render(); },
-  tuner: () => { if (live()) { sendCC(68, 127); toast('스톰프 튜너 켜기/끄기'); } else toast('튜너는 페달을 연결해야 쓸 수 있어요'); },
+  tuner: () => toast('튜너는 페달을 연결해야 쓸 수 있어요'),
   tap: () => {
-    sendCC(64, 127);
     const now = performance.now(); S.taps = S.taps.filter(x => now - x < 2500); S.taps.push(now);
     if (S.taps.length >= 2) { const iv = []; for (let i = 1; i < S.taps.length; i++) iv.push(S.taps[i]-S.taps[i-1]);
       const avg = iv.slice(-4).reduce((a,b)=>a+b,0)/Math.min(iv.length,4); S.bpm = Math.max(30, Math.min(300, Math.round(60000/avg))); }
